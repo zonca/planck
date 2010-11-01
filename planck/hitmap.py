@@ -6,7 +6,7 @@ import logging as l
 import numpy as np
 from LFI import LFI
 from pointing import Pointing
-from remix import read_exchange
+from testenv.remix import read_exchange
 import glob
 
 def testBit(int_type, offset):
