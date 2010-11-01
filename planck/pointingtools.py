@@ -132,3 +132,8 @@ def vector_ecl2gal(vecl):
     '''Convert arrays from Ecliptic to Galactic'''
     l.info('Rotating to Galactic frame')
     return qarray.rotate(QECL2GAL ,vecl)
+
+def vector_gal2ecl(vecl):
+    '''Convert arrays from Ecliptic to Galactic'''
+    l.info('Rotating to Galactic frame')
+    return qarray.rotate(qarray.inv(QECL2GAL) ,vecl)
