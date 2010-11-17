@@ -56,13 +56,22 @@ class HitMap(object):
         l.debug('Writing to file')
         cPickle.dump(self.hitmap, open('/u/zonca/p/issues/hitmap/pkl/%d_%d.pkl' % (self.freq,self.od),'wb'),protocol=-1)
 
-def pix2hitmap(pix, nside):
+def pix2map(pix, nside, tod=None):
+    """Pixel array to hitmap, if TOD with same lenght of PIX is provided, 
+    it is binned to a map"""
+    #TODO test case
     pix = pix.astype(np.int)
-    ids = np.bincount(pix)
-    hitmap = np.zeros(healpy.nside2npix(nside))
-    hitmap[:len(ids)] += ids
-    hitmap = np.ma.masked_equal(hitmap,0)
-    hitmap.fill_value = healpy.UNSEEN
-    return hitmap
+    ids = np.bincount(pix, weights=None)
+    hitmap = np.ones(healpy.nside2npix(nside)) * healpy.UNSEEN
+    hitmap[:len(ids)] = ids
+    hitmap = healpy.ma(hitmap)
+    if tod is None:
+        return hitmap
+    else:
+        ids_binned = np.bincount(pix, weights=tod)
+        binned = np.ones(healpy.nside2npix(nside)) * healpy.UNSEEN
+        binned[:len(ids)] = ids
+        binned = healpy.ma(binned)/hitmap
+        return hitmap, binned
 
     
