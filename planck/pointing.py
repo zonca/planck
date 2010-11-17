@@ -13,7 +13,7 @@ import numpy as np
 from LFI import LFI
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
-import cmb.quaternionarray as qarray
+import quaternionarray as qarray
 from utils import grouper
 import planck
 import private
