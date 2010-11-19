@@ -49,7 +49,7 @@ class Siam(object):
         self.siam = {}
         for line in grouper(4,lines[1:]):
             chtag = line[0].split()[0]
-            m = np.matrix(';'.join(line[1:])).T
+            m = np.array(np.matrix(';'.join(line[1:])).T)
             self.siam[chtag] = m
     def get(self, ch):
         if ch.inst.name == 'HFI':
@@ -76,7 +76,7 @@ class SiamAngles(object):
         total = mat_spin2boresight * (mat_theta_phi * mat_psi)
         total_mat = np.matrix(np.split(np.array(total.toList(rowmajor=True)),3))
         # siam is defined as pointing to Z axis
-        return total_mat * np.matrix([[0,0,1],[0,1,0],[1,0,0]])
+        return np.array(total_mat * np.matrix([[0,0,1],[0,1,0],[1,0,0]]))
 
 def AHF_filename2od(filename):
         return int(re.findall('/(\d{4})/',filename)[0])

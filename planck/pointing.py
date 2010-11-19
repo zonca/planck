@@ -92,7 +92,7 @@ class Pointing(object):
 
     def get(self, rad):
         l.info('Rotating to detector %s' % rad)
-        x = self.siam.get(rad) * np.array([[1, 0, 0]]).T
+        x = np.dot(self.siam.get(rad),[1, 0, 0])
         x = np.array(x).flatten()
         vec = qarray.rotate(self.qsatgal_interp, x)
         l.info('Rotated to detector %s' % rad)
