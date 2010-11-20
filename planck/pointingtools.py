@@ -2,7 +2,6 @@ from __future__ import division
 
 #TODO remove useless imports
 import math
-import operator
 import pyfits
 import logging as l 
 import csv
@@ -10,12 +9,10 @@ import glob
 from itertools import *
 from Quaternion import Quat as quat
 import numpy as np
-from LFI import LFI
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
 import quaternionarray as qarray
 from utils import grouper
-import planck
 import private
 from cgkit.cgtypes import *
 from pointingtools import *

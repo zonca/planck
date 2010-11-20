@@ -15,7 +15,7 @@ from LFI import LFI
 import re
 import quaternionarray as qarray
 from utils import grouper
-import planck
+import Planck
 import private
 from cgkit.cgtypes import *
 from pointingtools import *
