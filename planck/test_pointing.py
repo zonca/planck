@@ -17,7 +17,6 @@ class TestPointing(unittest.TestCase):
         self.chlfi = LFI()['LFI28M']
         self.TOLERANCE = 1e-7
 
-
     def test_prepare_for_dipole(self):
         '''Saves pointing array for testing dipole generation'''
         read_exchange([self.chlfi], ods = [100], discard_flag = False,type='R')

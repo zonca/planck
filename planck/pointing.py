@@ -84,8 +84,7 @@ class Pointing(object):
         siam_quat = Quat(self.siam.get(rad)).q
         totquat = qarray.mult(self.qsatgal_interp, siam_quat)
         totquat_interp = qarray.nlerp(self.obt, self.ahfobt, totquat)
-        x = np.array([[1, 0, 0]]).T
-        x = np.array(x).flatten()
+        x = np.array([1, 0, 0])
         vec = qarray.rotate(totquat_interp, x)
         l.info('Rotated to detector %s' % rad)
         return vec
@@ -93,8 +92,7 @@ class Pointing(object):
     def get(self, rad):
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
-        x = np.array(x).flatten()
-        vec = qarray.rotate(self.qsatgal_interp, x)
+        vec = qarray.norm(qarray.rotate(self.qsatgal_interp, x))
         l.info('Rotated to detector %s' % rad)
         return vec
 
