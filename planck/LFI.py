@@ -4,13 +4,13 @@
 # by zonca@deepspace.ucsb.edu
 
 import numpy as np
-import planck
+import Planck
 import private
 
 def flatten_d(chlist):
     return [d for ch in chlist for d in ch.d]
 
-class LFIChannel(planck.Channel):
+class LFIChannel(Planck.Channel):
 
     MS = { 0 : 'M', 1 : 'S' }
     fromMS = { 'M' : 0, 'S' : 1}
@@ -46,12 +46,12 @@ class LFIChannel(planck.Channel):
         from testenv import dipole
         return dipole.Planck_to_RJ(data, self.centralfreq)
 
-class LFIFrequencySet(planck.FrequencySet):
+class LFIFrequencySet(Planck.FrequencySet):
     
     @property
     def d(self):
         return flatten_d(self.ch)
-class LFI(planck.Instrument):
+class LFI(Planck.Instrument):
 
     Channel = LFIChannel
     FrequencySet = LFIFrequencySet
@@ -85,7 +85,7 @@ class LFI(planck.Instrument):
     @property
     def d(self):
         return flatten_d(self.ch)
-class Detector(planck.ChannelBase):
+class Detector(Planck.ChannelBase):
     def __init__(self, ch, n):
         self.n = n
         self.ch = ch

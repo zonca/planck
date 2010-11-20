@@ -3,10 +3,10 @@
 # Generic python class for dealing with Planck HFI
 # by zonca@deepspace.ucsb.edu
 
-import planck
+import Planck
 import private
 
-class HFIChannel(planck.Channel):
+class HFIChannel(Planck.Channel):
 
     @property
     def centralfreq(self):
@@ -15,7 +15,7 @@ class HFIChannel(planck.Channel):
     def Planck_to_RJ(self, data):
         return data / private.mKRJ_2_mKcmb[self.f.freq]
 
-class HFI(planck.Instrument):
+class HFI(Planck.Instrument):
     
     Channel = HFIChannel
     
