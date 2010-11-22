@@ -70,7 +70,7 @@ def pix2map(pix, nside, tod=None):
     else:
         ids_binned = np.bincount(pix, weights=tod)
         binned = np.ones(healpy.nside2npix(nside)) * healpy.UNSEEN
-        binned[:len(ids)] = ids
+        binned[:len(ids_binned)] = ids_binned
         binned = healpy.ma(binned)/hitmap
         return hitmap, binned
 
