@@ -1,13 +1,7 @@
 from __future__ import division
 
-#TODO remove useless imports
-import math
-import operator
 import pyfits
 import logging as l 
-import csv
-import glob
-from itertools import *
 from Quaternion import Quat as quat
 import numpy as np
 from LFI import LFI
@@ -17,7 +11,6 @@ import quaternionarray as qarray
 from utils import grouper
 import Planck
 import private
-from cgkit.cgtypes import *
 from pointingtools import *
 
 class Pointing(object):
@@ -101,7 +94,11 @@ class Pointing(object):
         vec = self.get(rad)
         return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest)
 
-    def get_ang(self, rad):
+    def get_ang(self, rad, degrees=False):
         from healpy import vec2ang
         vec = self.get(rad)
-        return vec2ang(vec)
+        ang = vec2ang(vec)
+        if degrees:
+            return map(np.rad2deg, ang)
+        else:
+            return ang
