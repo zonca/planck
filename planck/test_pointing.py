@@ -102,3 +102,6 @@ class TestPointing(unittest.TestCase):
         print(vgal_ecl2gal)
         print(vgal_matrix)
         assert (vgal_ecl2gal - vgal_matrix).std() < 1e-8
+
+if __name__ == '__main__':
+    unittest.main()

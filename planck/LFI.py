@@ -43,7 +43,7 @@ class LFIChannel(Planck.Channel):
         return self.d[n]
 
     def Planck_to_RJ(self, data):
-        from testenv import dipole
+        import dipole
         return dipole.Planck_to_RJ(data, self.centralfreq)
 
 class LFIFrequencySet(Planck.FrequencySet):

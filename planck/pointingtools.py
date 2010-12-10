@@ -17,24 +17,9 @@ import private
 from cgkit.cgtypes import *
 from pointingtools import *
 
+import pysqlite2.dbapi2 as sqlite3
 
 QECL2GAL = np.array((-0.37382079227204573, 0.33419217216073838, 0.64478939348298625, 0.57690575088960561))
-
-def ahf_limits(odrange = range(90,481 +1), folder = private.AHF_limits):
-    from IPython.kernel import client
-    tc = client.TaskClient()
-    files = [glob.glob(folder + '/%04d/att_hist_high*' % od)[0] for od in odrange]
-    lims = tc.map(get_ahf_lim, files)
-    outfile = open('/u/zonca/p/remix/AHF-limits.txt','w')
-    out = csv.writer(outfile)
-    for f,l in zip(files,lims):
-        out.writerow([f,'%f' % l[0],'%f' % l[1]])
-    outfile.close()
-
-def get_ahf_lim(AHF):
-    import pyfits
-    f = pyfits.open(AHF)
-    return f[1].data.field('OBT_SPL')[[0,-1]]/2.**16
 
 class Siam(object):
 
@@ -75,32 +60,15 @@ class SiamAngles(object):
         # siam is defined as pointing to Z axis
         return np.array(total_mat * np.matrix([[0,0,1],[0,1,0],[1,0,0]]))
 
-def AHF_filename2od(filename):
-        return int(re.findall('/(\d{4})/',filename)[0])
-
-def get_AHF_limits(filenames = True):
-        limitsfile = private.limitsfile
-        if filenames:
-            dt=np.dtype({'names':['filename','start','end'],'formats':['S100',np.float,np.float]})
-            return np.loadtxt(open(limitsfile),delimiter=',',dtype=dt)
-        else:
-            dt=np.dtype({'names':['od','start','end'],'formats':[np.int,np.float,np.float]})
-            return np.loadtxt(open(limitsfile),delimiter=',',dtype=dt, converters={0: AHF_filename2od})
-
 def AHF_btw_OBT(obt):
 
-        limits = get_AHF_limits()
-
-        first_file_index = limits['start'].searchsorted(obt[0]) - 1
-        last_file_index = limits['end'].searchsorted(obt[-1])
-        if first_file_index == -1:
-            first_file_index = 0
-        if last_file_index > len(limits) -1:
-            last_file_index -= 1
-
-        files = limits['filename'][first_file_index:last_file_index + 1]
-        l.debug('Opening %s' % files)
-        return files
+    conn = sqlite3.connect('/u/zonca/p/remix/database.db')
+    c = conn.cursor()
+    values = (obt[0]*2**16, obt[-1]*2**16)
+    query = c.execute('select file_path from ahf_files where endOBT>=? and startOBT<=?', values)
+    files = [q[0] for q in query]
+    c.close()
+    return files
 
 def generate_repointing_flag(obt):
     flag = np.zeros_like(obt)
