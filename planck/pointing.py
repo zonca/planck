@@ -2,7 +2,6 @@ from __future__ import division
 
 import pyfits
 import logging as l 
-from Quaternion import Quat as quat
 import numpy as np
 from LFI import LFI
 #from IPython.Debugger import Tracer; debug_here = Tracer()

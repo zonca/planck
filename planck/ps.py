@@ -8,8 +8,6 @@ import math
 
 import healpy
 
-from cluster import run_serial
-
 def apply_mask(mask, m):
     m[mask == 0] = healpy.UNSEEN
     return m
