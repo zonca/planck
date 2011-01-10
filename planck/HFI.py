@@ -17,6 +17,9 @@ class HFIChannel(Planck.Channel):
 
 class HFI(Planck.Instrument):
     
+
+    uncal = 'R'
+
     Channel = HFIChannel
     
     def __init__(self, name = 'HFI', rimo =private.HFI_rimo):

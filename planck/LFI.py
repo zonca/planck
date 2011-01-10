@@ -53,6 +53,8 @@ class LFIFrequencySet(Planck.FrequencySet):
         return flatten_d(self.ch)
 class LFI(Planck.Instrument):
 
+    uncal = 'C'
+
     Channel = LFIChannel
     FrequencySet = LFIFrequencySet
 
