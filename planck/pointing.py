@@ -88,17 +88,35 @@ class Pointing(object):
         l.info('Rotated to detector %s' % rad)
         return vec
 
-    def get_3ang(self, rad):
-        l.info('Rotating to detector %s' % rad)
-        theta, phi = self.get_ang(rad)
+    def compute_psi(self, theta, phi, rad):
         z = np.dot(self.siam.get(rad),[0, 0, 1])
         vecz = qarray.norm(qarray.rotate(self.qsatgal_interp, z))
         e_phi = np.hstack([-np.sin(phi)[:,np.newaxis], np.cos(phi)[:,np.newaxis], np.zeros([len(phi),1])])
         e_theta = np.hstack([(np.cos(theta)*np.cos(phi))[:,np.newaxis], (np.cos(theta)*np.sin(phi))[:,np.newaxis], -np.sin(theta)[:,np.newaxis]])
         psi = np.arctan2(-qarray.arraylist_dot(vecz, e_phi), -qarray.arraylist_dot(vecz, e_theta))
+        return psi.flatten()
+
+    def get_vecpsi(self, rad):
+        from healpy import vec2ang
+        vec = self.get(rad)
+        theta, phi = vec2ang(vec)
+        psi = self.compute_psi(theta, phi, rad)
+        return vec, psi
+
+    def get_3ang(self, rad):
+        l.info('Rotating to detector %s' % rad)
+        theta, phi = self.get_ang(rad)
+        psi = self.compute_psi(theta, phi, rad)
         #psi = np.arcsin(-qarray.arraylist_dot(vecz, e_phi))
         l.info('Rotated to detector %s' % rad)
-        return theta, phi, psi.flatten()
+        return theta, phi, psi
+
+    def get_pix_iqu(self, rad, nside=1024, nest=True):
+        from healpy import vec2pix, vec2ang
+        vec = self.get(rad)
+        theta, phi = vec2ang(vec)
+        psi = self.compute_psi(theta, phi, rad)
+        return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), np.ones(len(psi)), np.cos(2*psi), np.sin(2*psi)
 
     def get_pix(self, rad, nside=1024, nest=True):
         from healpy import vec2pix
