@@ -27,7 +27,7 @@ def concat_hitmaps(folder = 'pkl/'):
 
 class HitMap(object):
 
-    def __init__(self, freq, od, nside=512, use_flag=True):
+    def __init__(self, freq, od, nside=1024, use_flag=True):
         LOG_FILENAME = '/u/zonca/p/issues/hitmap/full.log'
         l.basicConfig(filename=LOG_FILENAME,level=l.DEBUG)
         self.freq = freq
