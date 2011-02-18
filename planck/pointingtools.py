@@ -16,8 +16,12 @@ from utils import grouper
 import private
 from cgkit.cgtypes import *
 from pointingtools import *
+import exceptions
 
-import pysqlite2.dbapi2 as sqlite3
+try:
+    import pysqlite2.dbapi2 as sqlite3
+except:
+    import sqlite3
 
 QECL2GAL_HYDRA = np.array((-0.37382079227204573, 0.33419217216073838, 0.64478939348298625, 0.57690575088960561))
 QECL2GAL_HEALPIX = np.array([-0.37381693504678937, 0.33419069514234978, 0.64479285220138716, 0.57690524015582401])
