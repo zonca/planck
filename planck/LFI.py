@@ -39,6 +39,9 @@ class LFIChannel(Planck.Channel):
     def wn(self): 
         return self.inst.instrument_db(self).field('NET_KCMB')
 
+    def get_instrument_db_field(self, field): 
+        return self.inst.instrument_db(self).field(field)
+
     def __getitem__(self, n):
         return self.d[n]
 
@@ -80,7 +83,7 @@ class LFI(Planck.Instrument):
     def instrument_db(self,ch):
         if not hasattr(self,'_instrument_db'):
             import pyfits
-            self._instrument_db = pyfits.open(private.instrument_db)[1].data
+            self._instrument_db = pyfits.open(private.instrument_db,ignore_missing_end=True)[1].data
         det_index, = np.where(self._instrument_db.field('RADIOMETER').rfind(ch.tag)== 0)
         return self._instrument_db[det_index]
 

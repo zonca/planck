@@ -55,9 +55,9 @@ class SiamAngles(object):
 
     def get(self, ch):
         mat_spin2boresight=mat3.rotation(np.pi/2-self.SPIN2BORESIGHT/180.*np.pi,vec3(0,1,0))
-        theta = np.radians(ch.rimo['THETA_UV'])
-        phi = np.radians(ch.rimo['PHI_UV'])
-        psi = np.radians(ch.rimo['PSI_UV'])
+        theta = np.radians(ch.get_instrument_db_field('THETA_UV'))
+        phi = np.radians(ch.get_instrument_db_field('PHI_UV'))
+        psi = np.radians(ch.get_instrument_db_field('PSI_UV')+ch.get_instrument_db_field('PSI_POL'))
         mat_theta_phi = mat3.rotation(theta,vec3(-math.sin(phi),math.cos(phi),0))
         mat_psi = mat3.rotation(psi,vec3(0,0,1))
         # detector points to X axis

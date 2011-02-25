@@ -49,6 +49,7 @@ class TestPointing(unittest.TestCase):
         thetadpc=dpc['theta'][i_dpc]
         phidpc=dpc['phi'][i_dpc]
         psidpc=dpc['psi'][i_dpc]
+        dpc['psi'] = dpc['psi'][i_dpc:]
         dpc['theta'] = dpc['theta'][i_dpc:]
         dpc['phi'] = dpc['phi'][i_dpc:]
         dpc['sampleOBT'] = dpc['sampleOBT'][i_dpc:]/2**16
@@ -97,6 +98,16 @@ class TestPointing(unittest.TestCase):
         vgal_ecl2gal = vector_ecl2gal(vecl).flatten()
         vgal_matrix = np.asarray(self.ecl2gal_healpix * vecl[:,np.newaxis]).flatten()
         np.testing.assert_array_almost_equal(vgal_ecl2gal , vgal_matrix)
+
+    def test_iqu_vs_m3(self):
+        obt = np.array([1629538385.0881653, 1629538385.3650208])
+        pnt = Pointing(obt)
+        pix, qw, uw = pnt.get_pix_iqu(self.chlfi)
+        np.testing.assert_array_almost_equal(pix, [6100717, 6102734])
+        np.testing.assert_array_almost_equal(qw, [-8.252502679824829e-01, -8.330312371253967e-01])
+        np.testing.assert_array_almost_equal(uw, [5.647672414779663e-01, 5.532259941101074e-01])
+
+
 
 if __name__ == '__main__':
     unittest.main()

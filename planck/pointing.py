@@ -116,7 +116,11 @@ class Pointing(object):
         vec = self.get(rad)
         theta, phi = vec2ang(vec)
         psi = self.compute_psi(theta, phi, rad)
-        return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), np.cos(2*psi), np.sin(2*psi)
+        #return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), np.cos(2*psi), np.sin(2*psi)
+        spsi = np.sin(psi)
+        cpsi = np.cos(psi)
+        cf = 1./(cpsi**2 + spsi**2)
+        return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), (cpsi**2 - spsi**2)*cf, 2*cpsi*spsi*cf
 
     def get_pix(self, rad, nside=1024, nest=True):
         from healpy import vec2pix
