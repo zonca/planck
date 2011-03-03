@@ -37,7 +37,7 @@ class Siam(object):
         self.siam = {}
         for line in grouper(4,lines[1:]):
             chtag = line[0].split()[0]
-            m = np.array(np.matrix(';'.join(line[1:])).T)
+            m = np.array(np.matrix(';'.join(line[1:])))
             self.siam[chtag] = m
     def get(self, ch):
         if ch.inst.name == 'HFI':
