@@ -29,7 +29,8 @@ QECL2GAL = QECL2GAL_HEALPIX
 
 class Siam(object):
 
-    def __init__(self):
+    def __init__(self, horn_pointing=False):
+        self.horn_pointing = horn_pointing
         siamfile = private.siam
         l.debug('using SIAM %s' % siamfile)
         f = open(siamfile)
@@ -44,19 +45,25 @@ class Siam(object):
             return self.siam[ch.tag]
         else:
             l.warning('For LFI using instrument DB angles')
-            return SiamAngles().get(ch)
+            return SiamAngles(self.horn_pointing).get(ch)
 
 class SiamAngles(object):
 
     SPIN2BORESIGHT = 85.0
     
-    def __init__(self):
-        pass
+    def __init__(self, horn_pointing):
+        self.horn_pointing = horn_pointing
 
     def get(self, ch):
         mat_spin2boresight=mat3.rotation(np.pi/2-self.SPIN2BORESIGHT/180.*np.pi,vec3(0,1,0))
-        theta = np.radians(ch.get_instrument_db_field('THETA_UV'))
-        phi = np.radians(ch.get_instrument_db_field('PHI_UV'))
+        if self.horn_pointing and ch.arm == 'M':
+            l.warning('USING HORN POINTING')
+            S_ch = ch.inst[ch.tag.replace('M','S')]
+            theta = np.radians(S_ch.get_instrument_db_field('THETA_UV'))
+            phi = np.radians(S_ch.get_instrument_db_field('PHI_UV'))
+        else:
+            theta = np.radians(ch.get_instrument_db_field('THETA_UV'))
+            phi = np.radians(ch.get_instrument_db_field('PHI_UV'))
         psi = np.radians(ch.get_instrument_db_field('PSI_UV')+ch.get_instrument_db_field('PSI_POL'))
         mat_theta_phi = mat3.rotation(theta,vec3(-math.sin(phi),math.cos(phi),0))
         mat_psi = mat3.rotation(psi,vec3(0,0,1))
@@ -68,7 +75,7 @@ class SiamAngles(object):
 
 def AHF_btw_OBT(obt):
 
-    conn = sqlite3.connect('/u/zonca/p/remix/database.db')
+    conn = sqlite3.connect('/project/projectdirs/planck/user/zonca/remix/database.db')
     c = conn.cursor()
     values = (obt[0]*2**16, obt[-1]*2**16)
     query = c.execute('select file_path from ahf_files where endOBT>=? and startOBT<=?', values)

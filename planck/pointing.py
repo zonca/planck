@@ -22,7 +22,7 @@ class Pointing(object):
     >>> pix = pnt.get_pix(ch, 2048, nest=True) #healpix pixel number nside 2048
     '''
 
-    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False):
+    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False):
         '''AHF_d is the pyfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s' % coord)
@@ -64,7 +64,7 @@ class Pointing(object):
             self.qsatgal_interp = qarray.nlerp(obt, ahfobt, qsatgal)
 
         l.info('Quaternions interpolated')
-        self.siam = Siam()
+        self.siam = Siam(horn_pointing)
 
         self.ahfobt = ahfobt
         self.obt = obt
