@@ -13,11 +13,8 @@ class Channel(ChannelBase):
     '''Abstract channel class for LFI and HFI channels'''
 
     def __init__(self, data, inst=None):
-        try:
-            self.tag = data[0][0]
-        except:
-            self.tag = data[0]
-        self.rimo = data
+        self.tag = data[0].strip()
+        self.rimo = np.array(data)
         self.inst = inst
 
     @property
@@ -54,7 +51,7 @@ class Instrument(object):
         '''Rimo is full path to Reduced Instrument Model FITS file'''
         self.name = name
         self.rimo = rimo
-        rimo_file = pyfits.open(rimo)[1].data
+        rimo_file = np.array(pyfits.open(rimo)[1].data)
         rimo_file.sort()
         self.rimo_fields = rimo_file.dtype.names
         self.ch = map(self.Channel, rimo_file, [self]*len(rimo_file))

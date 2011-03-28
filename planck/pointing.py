@@ -29,7 +29,9 @@ class Pointing(object):
         #get ahf limits
 
         if  AHF_d is None:
-            AHF_data_iter = (pyfits.open(file)[1].data for file in AHF_btw_OBT(obt))
+            files = AHF_btw_OBT(obt)
+            l.debug('reading files %s' % str(files))
+            AHF_data_iter = (pyfits.open(file)[1].data for file in files)
         else:
             AHF_data_iter = [AHF_d]
 
