@@ -37,20 +37,23 @@ class Pointing(object):
 
         ahfobt = np.array([])
         qsat = None
+        l.debug('concatenating quaternions')
         for AHF_data in AHF_data_iter:
 
             obt_spl = AHF_data.field('OBT_SPL')/2.**16
             i_start = max(obt_spl.searchsorted(obt[0])-1,0)
             i_end = min(obt_spl.searchsorted(obt[-1])+1,len(obt_spl)-1)
-            AHF = AHF_data[i_start:i_end]
 
-            allquat = np.hstack([AHF.field('QUATERNION_X')[:,np.newaxis], AHF.field('QUATERNION_Y')[:,np.newaxis], AHF.field('QUATERNION_Z')[:,np.newaxis], AHF.field('QUATERNION_S')[:,np.newaxis]])
+            allquat = np.zeros((i_end-i_start, 4))
+
+            for i, comp in enumerate(['X','Y','Z','S']):
+                allquat[:, i] = AHF_data.field('QUATERNION_%s' % comp)[i_start:i_end]
 
             if qsat is None:
                 qsat = allquat
             else:
                 qsat = np.vstack([qsat,allquat])
-            ahfobt = np.concatenate([ahfobt, AHF.field('OBT_SPL')/2.**16])
+            ahfobt = np.concatenate([ahfobt, AHF_data.field('OBT_SPL')[i_start:i_end]/2.**16])
 
         if coord == 'E':
             qsatgal = qsat
