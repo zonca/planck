@@ -13,7 +13,10 @@ class Channel(ChannelBase):
     '''Abstract channel class for LFI and HFI channels'''
 
     def __init__(self, data, inst=None):
-        self.tag = data[0]
+        try:
+            self.tag = data[0][0]
+        except:
+            self.tag = data[0]
         self.rimo = data
         self.inst = inst
 
