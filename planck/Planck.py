@@ -3,6 +3,18 @@ import numpy as np
 from exceptions import KeyError
 import itertools
 
+def parse_channels(chfreq):
+    if isinstance(chfreq, list) and isinstance(chfreq[0], Channel):
+        return chfreq
+    else:
+        pl = Planck()
+        if isinstance(chfreq, int):
+            return pl.f[chfreq].ch
+        elif isinstance(chfreq, str):
+            return [pl[chfreq]]
+        elif isinstance(chfreq, list) and isinstance(chfreq[0], str):
+            return [pl[tag] for tag in chfreq]
+
 class ChannelBase(object):
     '''Base for Channel, frequencyset and detector'''
 
