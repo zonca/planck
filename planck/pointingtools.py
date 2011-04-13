@@ -59,12 +59,12 @@ class SiamAngles(object):
         if self.horn_pointing and ch.arm == 'M':
             l.warning('USING HORN POINTING')
             S_ch = ch.inst[ch.tag.replace('M','S')]
-            theta = np.radians(S_ch.get_instrument_db_field('THETA_UV'))
-            phi = np.radians(S_ch.get_instrument_db_field('PHI_UV'))
+            theta = np.radians(S_ch.get_instrument_db_field('theta_uv'))
+            phi = np.radians(S_ch.get_instrument_db_field('phi_uv'))
         else:
-            theta = np.radians(ch.get_instrument_db_field('THETA_UV'))
-            phi = np.radians(ch.get_instrument_db_field('PHI_UV'))
-        psi = np.radians(ch.get_instrument_db_field('PSI_UV')+ch.get_instrument_db_field('PSI_POL'))
+            theta = np.radians(ch.get_instrument_db_field('theta_uv'))
+            phi = np.radians(ch.get_instrument_db_field('phi_uv'))
+        psi = np.radians(ch.get_instrument_db_field('psi_uv')+ch.get_instrument_db_field('psi_pol'))
         mat_theta_phi = mat3.rotation(theta,vec3(-math.sin(phi),math.cos(phi),0))
         mat_psi = mat3.rotation(psi,vec3(0,0,1))
         # detector points to X axis
