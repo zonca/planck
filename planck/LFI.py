@@ -33,14 +33,14 @@ class LFIChannel(Planck.Channel):
 
     @property
     def centralfreq(self):
-        return self.inst.instrument_db(self).field('nu_cen')
+        return self.inst.instrument_db(self)['nu_cen']
 
     @property
     def wn(self): 
-        return self.inst.instrument_db(self).field('NET_KCMB')
+        return self.inst.instrument_db(self)['NET_KCMB']
 
     def get_instrument_db_field(self, field): 
-        return self.inst.instrument_db(self).field(field)
+        return self.inst.instrument_db(self)[field]
 
     def __getitem__(self, n):
         return self.d[n]
@@ -48,6 +48,10 @@ class LFIChannel(Planck.Channel):
     def Planck_to_RJ(self, data):
         import dipole
         return dipole.Planck_to_RJ(data, self.centralfreq)
+
+    @property
+    def pair(self):
+        return self.inst[self.tag.replace(self.MS[self.n], self.MS[not self.n])]
 
 class LFIFrequencySet(Planck.FrequencySet):
     
@@ -81,10 +85,10 @@ class LFI(Planck.Instrument):
         return int(tag[3:5])
         
     def instrument_db(self,ch):
-        if not hasattr(self,'_instrument_db'):
+        if not hasattr(self,'_instrument_db') or self._instrument_db is None:
             import pyfits
-            self._instrument_db = pyfits.open(private.instrument_db,ignore_missing_end=True)[1].data
-        det_index, = np.where(self._instrument_db.field('RADIOMETER').rfind(ch.tag)== 0)
+            self._instrument_db = np.array(pyfits.open(private.instrument_db,ignore_missing_end=True))[1].data
+        det_index, = np.where(self._instrument_db['RADIOMETER'].rfind(ch.tag)== 0)
         return self._instrument_db[det_index]
 
     @property
