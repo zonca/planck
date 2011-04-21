@@ -11,6 +11,8 @@ from utils import grouper
 import Planck
 import private
 from pointingtools import *
+from dipole import SatelliteVelocity
+import physcon
 
 class Pointing(object):
     '''Pointing interpolation and rotation class
@@ -22,7 +24,7 @@ class Pointing(object):
     >>> pix = pnt.get_pix(ch, 2048, nest=True) #healpix pixel number nside 2048
     '''
 
-    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False):
+    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False, deaberration=False):
         '''AHF_d is the pyfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s' % coord)
@@ -73,6 +75,7 @@ class Pointing(object):
 
         self.ahfobt = ahfobt
         self.obt = obt
+        self.coord = coord
 
     def interp_get(self, rad):
         '''Interpolation after rotation to gal frame'''
@@ -90,6 +93,10 @@ class Pointing(object):
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
         vec = qarray.norm(qarray.rotate(self.qsatgal_interp, x))
+        if self.deaberration:
+            l.warning('Applying deaberration correction')
+            satvel = SatelliteVelocity(self.coord).orbital_v(self.obt)
+            vec = vec + np.cross(v, np.cross(v, satvel/physcon.c))
         l.info('Rotated to detector %s' % rad)
         return vec
 
