@@ -14,6 +14,10 @@ from pointingtools import *
 from dipole import SatelliteVelocity
 import physcon
 
+def deaberration_correction(vec, obt, coord):
+    satvel = SatelliteVelocity(coord).orbital_v(obt)
+    return np.cross(vec, np.cross(vec, satvel/physcon.c))
+
 class Pointing(object):
     '''Pointing interpolation and rotation class
     
@@ -29,6 +33,7 @@ class Pointing(object):
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s' % coord)
         #get ahf limits
+        self.deaberration = deaberration
 
         if  AHF_d is None:
             files = AHF_btw_OBT(obt)
@@ -90,13 +95,15 @@ class Pointing(object):
         return vec
 
     def get(self, rad):
+        rad = Planck.parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
-        vec = qarray.norm(qarray.rotate(self.qsatgal_interp, x))
+        vec = qarray.rotate(self.qsatgal_interp, x)
+        qarray.norm_inplace(vec)
         if self.deaberration:
             l.warning('Applying deaberration correction')
-            satvel = SatelliteVelocity(self.coord).orbital_v(self.obt)
-            vec = vec + np.cross(v, np.cross(v, satvel/physcon.c))
+            vec += deaberration_correction(vec, self.obt, self.coord)
+            qarray.norm_inplace(vec)
         l.info('Rotated to detector %s' % rad)
         return vec
 

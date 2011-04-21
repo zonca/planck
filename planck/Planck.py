@@ -15,6 +15,14 @@ def parse_channels(chfreq):
         elif isinstance(chfreq, list) and isinstance(chfreq[0], str):
             return [pl[tag] for tag in chfreq]
 
+def parse_channel(chfreq):
+    if isinstance(chfreq, Channel):
+        return chfreq
+    else:
+        pl = Planck()
+        if isinstance(chfreq, str):
+            return pl[chfreq]
+
 class ChannelBase(object):
     '''Base for Channel, frequencyset and detector'''
 
