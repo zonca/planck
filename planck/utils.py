@@ -1,12 +1,39 @@
 from __future__ import division
+import exceptions
 import numpy as np
 from itertools import *
 import ephem
 import datetime
+import private
+import os
+try:
+    from bitstring import ConstBitArray
+except exceptions.ImportError:
+    print('pix2od requires bitstring: easy_install bitstring')
+    sys.exit(1)
 
 OBTSTARTDATE = datetime.datetime(1958,1,1,0,0,0)
 LAUNCH = datetime.datetime(2009, 5, 13, 13, 11, 57, 565826)
 SECONDSPERDAY = 3600 * 24
+
+def pix2od(ch, pixels):
+    """ nside 512 NEST pixel number to OD [91-563 excluding 454-455] for Planck channels
+    it returns a list of sets.
+    Each set contains the ODs hit by each pixel
+    """
+    filename = os.path.join(private.PIX2ODPATH, 'od_by_pixel_%s.bin' % ch.replace('M','S'))
+    pixels_by_od = ConstBitArray(filename = filename)
+    odrange = [91, 563+1]
+    num_ods = odrange[1] - odrange[0]
+    NSIDE = 512
+    NPIX = 12 * NSIDE**2
+    tot_ods = list()
+    if np.any(np.array(pixels) >= NPIX):
+        raise exceptions.ValueError('ERROR: input pixels must be NSIDE 512, RTFM!')
+    for pix in pixels:
+        ods = set(np.array(list(pixels_by_od[num_ods*pix:num_ods*pix+num_ods].findall([True]))) + odrange[0])
+        tot_ods.append(ods)
+    return tot_ods
 
 def grouper(n, iterable, padvalue=None):
     "grouper(3, 'abcdefg', 'x') --> ('a','b','c'), ('d','e','f'), ('g','x','x')"
