@@ -33,14 +33,14 @@ class LFIChannel(Planck.Channel):
 
     @property
     def centralfreq(self):
-        return self.inst.instrument_db(self)['nu_cen']
+        return self.get_instrument_db_field('nu_cen')
 
     @property
     def wn(self): 
-        return self.inst.instrument_db(self)['NET_KCMB']
+        return self.get_instrument_db_field('net_KCMB')
 
     def get_instrument_db_field(self, field): 
-        return self.inst.instrument_db(self)[field]
+        return self.inst.instrument_db(self)[field][0]
 
     def __getitem__(self, n):
         return self.d[n]
