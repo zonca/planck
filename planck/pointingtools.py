@@ -9,7 +9,7 @@ import glob
 from itertools import *
 from Quaternion import Quat as quat
 import numpy as np
-#from IPython.Debugger import Tracer; debug_here = Tracer()
+from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
 import quaternionarray as qarray
 from utils import grouper
@@ -54,8 +54,7 @@ class SiamAngles(object):
     def __init__(self, horn_pointing):
         self.horn_pointing = horn_pointing
 
-    def get(self, ch):
-        mat_spin2boresight=mat3.rotation(np.pi/2-self.SPIN2BORESIGHT/180.*np.pi,vec3(0,1,0))
+    def get_angles(self, ch):
         if self.horn_pointing and ch.arm == 'M':
             l.warning('USING HORN POINTING')
             S_ch = ch.inst[ch.tag.replace('M','S')]
@@ -65,6 +64,13 @@ class SiamAngles(object):
             theta = np.radians(ch.get_instrument_db_field('theta_uv'))
             phi = np.radians(ch.get_instrument_db_field('phi_uv'))
         psi = np.radians(ch.get_instrument_db_field('psi_uv')+ch.get_instrument_db_field('psi_pol'))
+        return theta, phi, psi
+
+    def get(self, ch):
+        mat_spin2boresight=mat3.rotation(np.pi/2-self.SPIN2BORESIGHT/180.*np.pi,vec3(0,1,0))
+        theta, phi, psi = self.get_angles(ch)
+        #debug_here()
+
         mat_theta_phi = mat3.rotation(theta,vec3(-math.sin(phi),math.cos(phi),0))
         mat_psi = mat3.rotation(psi,vec3(0,0,1))
         # detector points to X axis
@@ -72,6 +78,16 @@ class SiamAngles(object):
         total_mat = np.matrix(np.split(np.array(total.toList(rowmajor=True)),3))
         # siam is defined as pointing to Z axis
         return np.array(total_mat * np.matrix([[0,0,1],[0,1,0],[1,0,0]]))
+
+class SiamForcedAngles(SiamAngles):
+
+    def __init__(self, theta, phi, psi):
+        self.theta = theta
+        self.phi = phi
+        self.psi = psi
+
+    def get_angles(self, ch):
+        return self.theta, self.phi, self.psi
 
 def AHF_btw_OBT(obt):
 

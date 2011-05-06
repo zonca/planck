@@ -4,6 +4,8 @@ from exceptions import KeyError
 import itertools
 
 def parse_channels(chfreq):
+    if chfreq is None:
+        return None
     if isinstance(chfreq, list) and isinstance(chfreq[0], Channel):
         return chfreq
     else:
@@ -38,8 +40,20 @@ class Channel(ChannelBase):
         self.inst = inst
 
     @property
+    def arm(self):
+        return self.tag[-1]
+
+    @property
     def sampling_freq(self):
         return self.rimo['F_SAMP']
+
+    @property
+    def pair(self):
+        return self.inst[self.tag.replace(self.MS[self.n], self.MS[not self.n])]
+
+    @property
+    def n(self):
+        return self.fromMS[self.arm]
 
 class FrequencySet(ChannelBase):
     def __init__(self, freq, ch, inst=None):

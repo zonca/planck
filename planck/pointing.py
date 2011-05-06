@@ -1,6 +1,5 @@
 from __future__ import division
 
-import pyfits
 import logging as l 
 import numpy as np
 from LFI import LFI
@@ -13,6 +12,7 @@ import private
 from pointingtools import *
 from dipole import SatelliteVelocity
 import physcon
+import pfits
 
 def deaberration_correction(vec, obt, coord):
     satvel = SatelliteVelocity(coord).orbital_v(obt)
@@ -29,43 +29,39 @@ class Pointing(object):
     '''
 
     def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False, deaberration=False):
-        '''AHF_d is the pyfits AHF data if already loaded in the main file
+        '''AHF_d is the pfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s' % coord)
         #get ahf limits
         self.deaberration = deaberration
 
+        fields= ['OBT_SPL','QUATERNION_X','QUATERNION_Y','QUATERNION_Z','QUATERNION_S']
+
         if  AHF_d is None:
             files = AHF_btw_OBT(obt)
             l.debug('reading files %s' % str(files))
-            AHF_data_iter = (pyfits.open(file)[1].data for file in files)
+            AHF_data_iter = [pfits.FITS(f+'[ATT-HIST-HGH][col %s]' % (';'.join(fields))).get_hdus()[1].get_data() for f in files]
         else:
-            AHF_data_iter = [AHF_d]
+            AHF_data_iter = AHF_d
 
         ahfobt = np.array([])
         qsat = None
         l.debug('concatenating quaternions')
         for AHF_data in AHF_data_iter:
+            AHF_data['OBT_SPL'] /= 2.**16
 
-            obt_spl = AHF_data.field('OBT_SPL')/2.**16
-            i_start = max(obt_spl.searchsorted(obt[0])-1,0)
-            i_end = min(obt_spl.searchsorted(obt[-1])+1,len(obt_spl)-1)
-
-            allquat = np.zeros((i_end-i_start, 4))
-
-            for i, comp in enumerate(['X','Y','Z','S']):
-                allquat[:, i] = AHF_data.field('QUATERNION_%s' % comp)[i_start:i_end]
-
-            if qsat is None:
-                qsat = allquat
-            else:
-                qsat = np.vstack([qsat,allquat])
-            ahfobt = np.concatenate([ahfobt, AHF_data.field('OBT_SPL')[i_start:i_end]/2.**16])
+        i_start = max(AHF_data_iter[0]['OBT_SPL'].searchsorted(obt[0])-1,0)
+        i_end = min(AHF_data_iter[-1]['OBT_SPL'].searchsorted(obt[-1])+1,len(AHF_data_iter[-1]['OBT_SPL'])-1)
+        for field in fields:
+            AHF_data_iter[0][field]=AHF_data_iter[0][field][i_start:]
+            AHF_data_iter[-1][field]=AHF_data_iter[-1][field][:i_end]
+        
+        qsat = np.hstack([np.concatenate([AHF_data['QUATERNION_%s' % comp] for AHF_data in AHF_data_iter]).reshape((-1,1)) for comp in ['X','Y','Z','S']])
+        self.ahfobt = np.concatenate([AHF_data['OBT_SPL'] for AHF_data in AHF_data_iter])
 
         if coord == 'E':
             qsatgal = qsat
         elif coord == 'G':
-            hfobt = np.array([])
             qsatgal = quaternion_ecl2gal(qsat)
 
         if nointerp:
@@ -73,12 +69,11 @@ class Pointing(object):
         else:
             l.info('Interpolating quaternions')
             #nlerp
-            self.qsatgal_interp = qarray.nlerp(obt, ahfobt, qsatgal)
+            self.qsatgal_interp = qarray.nlerp(obt, self.ahfobt, qsatgal)
 
         l.info('Quaternions interpolated')
         self.siam = Siam(horn_pointing)
 
-        self.ahfobt = ahfobt
         self.obt = obt
         self.coord = coord
 

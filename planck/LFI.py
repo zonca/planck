@@ -24,12 +24,8 @@ class LFIChannel(Planck.Channel):
         return LFI.RCA_from_tag(self.tag)
 
     @property
-    def arm(self):
-        return self.tag[-1]
-
-    @property
-    def n(self):
-        return self.fromMS[self.arm]
+    def horn(self):
+        return self.RCA
 
     @property
     def centralfreq(self):
@@ -49,9 +45,6 @@ class LFIChannel(Planck.Channel):
         import dipole
         return dipole.Planck_to_RJ(data, self.centralfreq)
 
-    @property
-    def pair(self):
-        return self.inst[self.tag.replace(self.MS[self.n], self.MS[not self.n])]
 
 class LFIFrequencySet(Planck.FrequencySet):
     

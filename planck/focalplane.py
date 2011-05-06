@@ -1,11 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from pointingtools import Siam
+from pointingtools import *
 import re
-s=Siam()
+s=SiamAngles(False)
 plt.figure()
 pair = {'a':'b','M':'S'}
-for tag,m in s.siam.iteritems():
+from planck import LFI
+lfi = LFI.LFI()
+for ch in lfi.ch:
+    tag = ch.tag
+    m = s.get(ch)
 
     print(tag)
     label = tag

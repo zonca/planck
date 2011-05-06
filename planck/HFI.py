@@ -8,9 +8,16 @@ import private
 
 class HFIChannel(Planck.Channel):
 
+    MS = { 0 : 'a', 1 : 'b' }
+    fromMS = { 'a' : 0, 'b' : 1}
+
     @property
     def centralfreq(self):
         return self.f.freq
+
+    @property
+    def horn(self):
+        return int(self.tag.replace('a','').replace('b','').replace('-',''))
 
     def Planck_to_RJ(self, data):
         return data / private.mKRJ_2_mKcmb[self.f.freq]
