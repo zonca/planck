@@ -28,19 +28,21 @@ class Pointing(object):
     >>> pix = pnt.get_pix(ch, 2048, nest=True) #healpix pixel number nside 2048
     '''
 
-    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False, deaberration=False):
+    fields= ['OBT_SPL','QUATERNION_X','QUATERNION_Y','QUATERNION_Z','QUATERNION_S']
+
+    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False, deaberration=True, wobble=True):
         '''AHF_d is the pfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
-        l.warning('Pointing setup, coord:%s' % coord)
+        l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
         #get ahf limits
         self.deaberration = deaberration
+        self.wobble = wobble
 
-        fields= ['OBT_SPL','QUATERNION_X','QUATERNION_Y','QUATERNION_Z','QUATERNION_S']
 
         if  AHF_d is None:
             files = AHF_btw_OBT(obt)
             l.debug('reading files %s' % str(files))
-            AHF_data_iter = [pfits.FITS(f+'[ATT-HIST-HGH][col %s]' % (';'.join(fields))).get_hdus()[1].get_data() for f in files]
+            AHF_data_iter = [pfits.FITS(f+'[ATT-HIST-HGH][col %s]' % (';'.join(self.fields))).get_hdus()[1].get_data() for f in files]
         else:
             AHF_data_iter = AHF_d
 
@@ -52,7 +54,7 @@ class Pointing(object):
 
         i_start = max(AHF_data_iter[0]['OBT_SPL'].searchsorted(obt[0])-1,0)
         i_end = min(AHF_data_iter[-1]['OBT_SPL'].searchsorted(obt[-1])+1,len(AHF_data_iter[-1]['OBT_SPL'])-1)
-        for field in fields:
+        for field in self.fields:
             AHF_data_iter[0][field]=AHF_data_iter[0][field][i_start:]
             AHF_data_iter[-1][field]=AHF_data_iter[-1][field][:i_end]
         
