@@ -42,7 +42,7 @@ class Siam(object):
             self.siam[chtag] = m
     def get(self, ch):
         if ch.inst.name == 'HFI':
-            return self.siam[ch.tag]
+            return self.siam[ch.tag].T
         else:
             l.warning('For LFI using instrument DB angles')
             return SiamAngles(self.horn_pointing).get(ch)

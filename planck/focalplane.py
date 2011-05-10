@@ -2,11 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pointingtools import *
 import re
-s=SiamAngles(False)
+s=Siam(False)
 plt.figure()
 pair = {'a':'b','M':'S'}
-from planck import LFI
-lfi = LFI.LFI()
+from planck import Planck
+lfi = Planck.Planck()
 for ch in lfi.ch:
     tag = ch.tag
     m = s.get(ch)
