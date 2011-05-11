@@ -10,13 +10,10 @@ from utils import grouper
 import Planck
 import private
 from pointingtools import *
-from dipole import SatelliteVelocity
+from cgkit.cgtypes import *
 import physcon
 import pfits
-
-def deaberration_correction(vec, obt, coord):
-    satvel = SatelliteVelocity(coord).orbital_v(obt)
-    return np.cross(vec, np.cross(vec, satvel/physcon.c))
+import correction
 
 class Pointing(object):
     '''Pointing interpolation and rotation class
@@ -97,9 +94,12 @@ class Pointing(object):
         x = np.dot(self.siam.get(rad),[1, 0, 0])
         vec = qarray.rotate(self.qsatgal_interp, x)
         qarray.norm_inplace(vec)
+        if self.wobble:
+            pass
+
         if self.deaberration:
             l.warning('Applying deaberration correction')
-            vec += deaberration_correction(vec, self.obt, self.coord)
+            vec += correction.deaberration(vec, self.obt, self.coord)
             qarray.norm_inplace(vec)
         l.info('Rotated to detector %s' % rad)
         return vec

@@ -108,19 +108,5 @@ class TestPointing(unittest.TestCase):
         np.testing.assert_array_almost_equal(qw, [-8.252502679824829e-01, -8.330312371253967e-01])
         np.testing.assert_array_almost_equal(uw, [5.647672414779663e-01, 5.532259941101074e-01])
 
-    def test_deaberration(self):
-        obt = np.array([1628860882.826]) # OD92
-        pnt = Pointing(obt, coord='E')
-        vec = pnt.get('LFI28M') # theta = 166 deg
-        vecc = vec + deaberration_correction(vec, obt, coord='E')
-        qarray.norm_inplace(vecc)
-        np.testing.assert_array_almost_equal(np.degrees(np.arccos(qarray.arraylist_dot(vec, vecc)))*60**2, np.array([[ 19.8740605]]))
-        obt += 10. #30 sec after 14.6 deg
-        pnt = Pointing(obt, coord='E')
-        vec = pnt.get('LFI28M') # theta = 106 deg
-        vecc = vec + deaberration_correction(vec, obt, coord='E')
-        qarray.norm_inplace(vecc)
-        np.testing.assert_array_almost_equal(np.degrees(np.arccos(qarray.arraylist_dot(vec, vecc)))*60**2, np.array([[ 6.31009871]]))
-
 if __name__ == '__main__':
     unittest.main()
