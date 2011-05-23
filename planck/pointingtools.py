@@ -29,9 +29,10 @@ QECL2GAL = QECL2GAL_HEALPIX
 
 class Siam(object):
 
-    def __init__(self, horn_pointing=False):
+    def __init__(self, horn_pointing=False, siamfile=None):
         self.horn_pointing = horn_pointing
-        siamfile = private.siam
+        if siamfile is None:
+            siamfile = private.siam
         l.debug('using SIAM %s' % siamfile)
         f = open(siamfile)
         lines = f.readlines()
