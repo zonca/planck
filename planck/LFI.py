@@ -3,6 +3,7 @@
 # Generic python class for dealing with Planck LFI
 # by zonca@deepspace.ucsb.edu
 
+import logging as l
 import numpy as np
 import Planck
 import private
@@ -81,6 +82,7 @@ class LFI(Planck.Instrument):
         if not hasattr(self,'_instrument_db') or self._instrument_db is None:
             import pyfits
             self._instrument_db = np.array(pyfits.open(private.instrument_db,ignore_missing_end=True)[1].data)
+            l.warning('Loading instrumentdb %s' % private.instrument_db)
         det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['Radiometer']])
         return self._instrument_db[det_index]
 

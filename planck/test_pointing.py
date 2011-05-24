@@ -60,7 +60,7 @@ class TestPointing(unittest.TestCase):
         i_te = 697
         te = {'sampleOBT':self.chlfi.f.obtx[i_te:],'name':'te'}
         #pnt = Pointing(self.chlfi.f.obtx[697:698],coord='E')
-        pnt = Pointing(te['sampleOBT'],coord='E')
+        pnt = Pointing(te['sampleOBT'],coord='E', deaberration=False, wobble=False, horn_pointing=False)
         vec = pnt.get(self.chlfi)
         thetav, phiv, psiv = pnt.get_3ang(self.chlfi)
         te['theta'] = thetav
@@ -102,7 +102,7 @@ class TestPointing(unittest.TestCase):
 
     def test_iqu_vs_m3(self):
         obt = np.array([1629538385.0881653, 1629538385.3650208])
-        pnt = Pointing(obt)
+        pnt = Pointing(obt, deaberration=False, wobble=False, horn_pointing=False)
         pix, qw, uw = pnt.get_pix_iqu(self.chlfi)
         np.testing.assert_array_almost_equal(pix, [6100717, 6102734])
         np.testing.assert_array_almost_equal(qw, [-8.252502679824829e-01, -8.330312371253967e-01])
