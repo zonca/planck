@@ -59,8 +59,9 @@ class LFI(Planck.Instrument):
     Channel = LFIChannel
     FrequencySet = LFIFrequencySet
 
-    def __init__(self, name = 'LFI', rimo = private.LFI_rimo):
+    def __init__(self, name = 'LFI', rimo = private.LFI_rimo, instrument_db = private.instrument_db):
         super(LFI, self).__init__(name,rimo)
+        self.instrument_db_file = instrument_db
 
     @classmethod
     def freq_from_tag(cls, tag):
@@ -81,8 +82,8 @@ class LFI(Planck.Instrument):
     def instrument_db(self,ch):
         if not hasattr(self,'_instrument_db') or self._instrument_db is None:
             import pyfits
-            self._instrument_db = np.array(pyfits.open(private.instrument_db,ignore_missing_end=True)[1].data)
-            l.warning('Loading instrumentdb %s' % private.instrument_db)
+            self._instrument_db = np.array(pyfits.open(self.instrument_db_file,ignore_missing_end=True)[1].data)
+            l.warning('Loading instrumentdb %s' % self.instrument_db_file)
         det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['Radiometer']])
         return self._instrument_db[det_index]
 

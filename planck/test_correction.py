@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from pointing import *
 from correction import *
+import private
 from LFI import LFI
 
 class TestCorrection(unittest.TestCase):
@@ -19,18 +20,26 @@ class TestCorrection(unittest.TestCase):
 
     def test_deaberration(self):
         """Test with Michele's corrections"""
+        ch = LFI(instrument_db='/u/zonca/planck/data/mission/SIAM/LFI_instrumentDB_9.3.fits')['LFI28M']
         obt = np.array([1628860882.826]) # OD92
         pnt = Pointing(obt, coord='E', deaberration=False, wobble=False)
-        vec = pnt.get('LFI28M') # theta = 166 deg
+        vec = pnt.get(ch) # theta = 166 deg
         vecc = vec + deaberration(vec, obt, coord='E')
         qarray.norm_inplace(vecc)
         np.testing.assert_array_almost_equal(np.degrees(np.arccos(qarray.arraylist_dot(vec, vecc)))*60**2, np.array([[ 19.8740605]]))
         obt += 10. #30 sec after 14.6 deg
         pnt = Pointing(obt, coord='E', deaberration=False, wobble=False)
-        vec = pnt.get('LFI28M') # theta = 106 deg
+        vec = pnt.get(ch) # theta = 106 deg
         vecc = vec + deaberration(vec, obt, coord='E')
         qarray.norm_inplace(vecc)
         np.testing.assert_array_almost_equal(np.degrees(np.arccos(qarray.arraylist_dot(vec, vecc)))*60**2, np.array([[ 6.31009871]]))
+
+    def test_get_wobble_psi2(self):
+        self.assertAlmostEqual(get_wobble_psi2(1.067546522419189e+14/2**16), np.radians(-28.236426/60))
+
+    def test_null_correction(self):
+        r = wobble([0,0], wobble_psi2_model=lambda x:private.WOBBLE['psi2_ref']) 
+        self.assertEqual(r, mat3((1,0,0),(0,1,0),(0,0,1)))
 
 if __name__ == '__main__':
     unittest.main()

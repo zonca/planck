@@ -92,11 +92,10 @@ class Pointing(object):
         rad = Planck.parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
+        if self.wobble:
+            x = correction.wobble(np.mean(self.obt)) * x
         vec = qarray.rotate(self.qsatgal_interp, x)
         qarray.norm_inplace(vec)
-        if self.wobble:
-            pass
-
         if self.deaberration:
             l.warning('Applying deaberration correction')
             vec += correction.deaberration(vec, self.obt, self.coord)
