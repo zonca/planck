@@ -62,8 +62,8 @@ class Pointing(object):
         elif coord == 'G':
             qsatgal = quaternion_ecl2gal(qsat)
 
-        debug_here()
-        if self.wobble and len(qsatgal)<len(obt):
+        #debug_here()
+        if self.wobble and len(self.ahfobt)<len(obt):
             qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
 
         if nointerp:
@@ -73,7 +73,7 @@ class Pointing(object):
             #nlerp
             self.qsatgal_interp = qarray.nlerp(obt, self.ahfobt, qsatgal)
 
-        if self.wobble and len(qsatgal)>=len(obt):
+        if self.wobble and len(self.ahfobt)>=len(obt):
             self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
 
         l.info('Quaternions interpolated')
@@ -98,6 +98,9 @@ class Pointing(object):
         rad = Planck.parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
+        #if self.wobble:
+        #    x = qarray.rotate(correction.wobble(self.obt), x)
+        #    qarray.norm_inplace(x)
         vec = qarray.rotate(self.qsatgal_interp, x)
         qarray.norm_inplace(vec)
         if self.deaberration:
