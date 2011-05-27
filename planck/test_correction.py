@@ -38,8 +38,9 @@ class TestCorrection(unittest.TestCase):
         self.assertAlmostEqual(get_wobble_psi2(1.067546522419189e+14/2**16), np.radians(-28.236426/60))
 
     def test_null_correction(self):
-        r = wobble([0,0], wobble_psi2_model=lambda x:private.WOBBLE['psi2_ref']) 
-        self.assertEqual(r, mat3((1,0,0),(0,1,0),(0,0,1)))
+        r = wobble([0,0], wobble_psi2_model=lambda x:np.array([private.WOBBLE['psi2_ref']]*len(x))) 
+        self.assertEqual(r, np.array([[-0., -0., -0., -1.],
+               [-0., -0., -0., -1.]]))
 
 if __name__ == '__main__':
     unittest.main()

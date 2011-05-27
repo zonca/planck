@@ -9,7 +9,7 @@ import glob
 from itertools import *
 from Quaternion import Quat as quat
 import numpy as np
-from IPython.Debugger import Tracer; debug_here = Tracer()
+#from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
 import quaternionarray as qarray
 from utils import grouper
@@ -26,6 +26,9 @@ except:
 QECL2GAL_HYDRA = np.array((-0.37382079227204573, 0.33419217216073838, 0.64478939348298625, 0.57690575088960561))
 QECL2GAL_HEALPIX = np.array([-0.37381693504678937, 0.33419069514234978, 0.64479285220138716, 0.57690524015582401])
 QECL2GAL = QECL2GAL_HEALPIX
+
+def mat3_np(m):
+    return np.array(m.toList(rowmajor=True)).reshape(3,3)
 
 class Siam(object):
 
@@ -76,9 +79,9 @@ class SiamAngles(object):
         mat_psi = mat3.rotation(psi,vec3(0,0,1))
         # detector points to X axis
         total = mat_spin2boresight * (mat_theta_phi * mat_psi)
-        total_mat = np.matrix(np.split(np.array(total.toList(rowmajor=True)),3))
+        total_mat = mat3_np(total)
         # siam is defined as pointing to Z axis
-        return np.array(total_mat * np.matrix([[0,0,1],[0,1,0],[1,0,0]]))
+        return np.dot(total_mat, np.array([[0,0,1],[0,1,0],[1,0,0]]))
 
 class SiamForcedAngles(SiamAngles):
 

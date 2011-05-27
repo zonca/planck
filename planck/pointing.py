@@ -3,7 +3,7 @@ from __future__ import division
 import logging as l 
 import numpy as np
 from LFI import LFI
-#from IPython.Debugger import Tracer; debug_here = Tracer()
+from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
 import quaternionarray as qarray
 from utils import grouper
@@ -35,7 +35,6 @@ class Pointing(object):
         self.deaberration = deaberration
         self.wobble = wobble
 
-
         if  AHF_d is None:
             files = AHF_btw_OBT(obt)
             l.debug('reading files %s' % str(files))
@@ -63,12 +62,19 @@ class Pointing(object):
         elif coord == 'G':
             qsatgal = quaternion_ecl2gal(qsat)
 
+        debug_here()
+        if self.wobble and len(qsatgal)<len(obt):
+            qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
+
         if nointerp:
             self.qsatgal_interp = qsatgal 
         else:
             l.info('Interpolating quaternions')
             #nlerp
             self.qsatgal_interp = qarray.nlerp(obt, self.ahfobt, qsatgal)
+
+        if self.wobble and len(qsatgal)>=len(obt):
+            self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
 
         l.info('Quaternions interpolated')
         self.siam = Siam(horn_pointing)
@@ -92,13 +98,11 @@ class Pointing(object):
         rad = Planck.parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
-        if self.wobble:
-            x = correction.wobble(np.mean(self.obt)) * x
         vec = qarray.rotate(self.qsatgal_interp, x)
         qarray.norm_inplace(vec)
         if self.deaberration:
             l.warning('Applying deaberration correction')
-            vec += correction.deaberration(vec, self.obt, self.coord)
+            vec += correction.simple_deaberration(vec, self.obt, self.coord)
             qarray.norm_inplace(vec)
         l.info('Rotated to detector %s' % rad)
         return vec
