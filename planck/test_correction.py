@@ -42,9 +42,8 @@ class TestCorrection(unittest.TestCase):
         np.testing.assert_array_almost_equal(r, np.array([[-0., -0., -0., -1.], [-0., -0., -0., -1.]])) 
 
     def test_wobble_correction(self):
-        r = wobble(np.array([1635615346.1697083])
+        r = wobble(np.array([1635615346.1697083]))
         np.testing.assert_array_almost_equal(r, np.array([  2.08679712e-08,  -1.56235725e-05,  -0.00000000e+00, 1.00000000e+00]))
-
 
 if __name__ == '__main__':
     unittest.main()

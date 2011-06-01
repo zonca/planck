@@ -27,7 +27,7 @@ class Pointing(object):
 
     fields= ['OBT_SPL','QUATERNION_X','QUATERNION_Y','QUATERNION_Z','QUATERNION_S']
 
-    def __init__(self,obt,coord='G', AHF_d=None, nointerp=False, horn_pointing=False, deaberration=True, wobble=True):
+    def __init__(self,obt,coord='G', AHF_d=None, horn_pointing=False, deaberration=True, wobble=True, interp='slerp'):
         '''AHF_d is the pfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
@@ -66,12 +66,12 @@ class Pointing(object):
         if self.wobble and len(self.ahfobt)<len(obt):
             qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
 
-        if nointerp:
+        if interp is None:
             self.qsatgal_interp = qsatgal 
         else:
-            l.info('Interpolating quaternions')
-            #nlerp
-            self.qsatgal_interp = qarray.nlerp(obt, self.ahfobt, qsatgal)
+            l.info('Interpolating quaternions with %s' % interp)
+            interpfunc = getattr(qarray, interp)
+            self.qsatgal_interp = interpfunc(obt, self.ahfobt, qsatgal)
 
         if self.wobble and len(self.ahfobt)>=len(obt):
             self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))

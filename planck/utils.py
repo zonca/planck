@@ -2,6 +2,7 @@ from __future__ import division
 import exceptions
 import numpy as np
 from itertools import *
+from calendar import timegm
 import ephem
 import datetime
 import private
@@ -40,9 +41,46 @@ def grouper(n, iterable, padvalue=None):
     return izip(*[chain(iterable, repeat(padvalue, n-1))]*n)
 
 def ahfdate2obt(ahfdate):
+     from dipole import jd2obt
      jd = ephem.Date(ahfdate.replace('T',' ').replace('-','/')) - ephem.Date('-4713/1/1 12:00:0')
      return jd2obt(jd)
 
+def jd2scet(jd):
+    intPart = np.floor(jd + .5)
+    f = jd + .5 - intPart
+    tempYear = np.ones_like(jd) * intPart
+    tempVal = np.floor((intPart-1867216.25)/36524.25)
+    tempYear[intPart>2299160] = (intPart+1+tempVal-np.floor(tempVal/4))[intPart>2299160]
+    c = tempYear + 1524
+    d = np.floor((c-122.1)/365.25)
+    e = np.floor(365.25*d)
+    h = np.floor((c-e)/30.6001)
+  
+    day = c-e+f-np.floor(30.6001*h)
+    month = np.where(h<14, h-1, h-13)
+    year = np.where(month<3, d-4715, d-4716) 
+    
+    jdOff=jd+0.5
+    dayOffset = (jdOff-np.floor(jdOff))*86400
+    hours = np.floor(dayOffset/3600);
+    minutes = np.floor((dayOffset-3600*hours)/60);
+    seconds = dayOffset-3600*hours-60*minutes;
+    
+    tm_year = (year).astype(np.int)
+    tm_mon = (month).astype(np.int)
+    tm_mday = (np.floor(day)).astype(np.int)
+    tm_hour = (hours).astype(np.int)
+    tm_min = (minutes).astype(np.int)
+    tm_sec = (np.floor(seconds)).astype(np.int)
+
+    scet = np.zeros_like(jd)
+  
+    for i,(y,m,d,h,mi,s) in enumerate(zip(tm_year, tm_mon, tm_mday, tm_hour, tm_min, tm_sec)):
+        scet[i] = timegm((y,m,d,h,mi,s)) + 4383*86400
+  
+    return scet
+
+    
 def time2sample(freq, time):
     if freq == 30:
         return int((time - 1621174818.021514892578125) * 32.5079365079365)
