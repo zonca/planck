@@ -1,7 +1,9 @@
 import glob
+import sqlite3
 import exceptions
+import logging as l
 
-from Planck import parse_channels
+from Planck import parse_channels, freq2inst
 
 try:
     import private
@@ -33,9 +35,11 @@ class DataSelector(object):
             self._ods = sorted(list(self._ods))
             return self.ods
 
-    def by_od(self, ods):
-        """ods is a list of operational days"""
-        self._ods = ods
+    def by_od_range(self, od_range):
+        """ods is a list of start and stop OD"""
+        self.od_range = od_range
+        self._ods = range(od_range[0], od_range[1])
+        self.obt_ranges = [self.get_obt_range_from_od_range()]
 
     def by_obt(self, obt_ranges):
         """obt_ranges is a list of 2 element lists (or tuple) with start-stop obt"""
@@ -44,7 +48,7 @@ class DataSelector(object):
     def by_rings(self, rings):
         """rings is a list of ring numbers"""
         #FIXME LFI or HFI?
-        pass
+        raise exceptions.NotImplementedError()
 
     def get_one_AHF(self, obt_range):
         conn = sqlite3.connect(self.config['database'])
@@ -59,10 +63,35 @@ class DataSelector(object):
         return [self.get_one_AHF(obt_range) for obt_range in self.obt_ranges]
 
     def get_EFF(self):
-        return latest_exchange(self.f.freq, self.ods, self.efftype)
+        return self.latest_exchange(self.f.freq, self.ods, None, self.efftype)
 
-    @classmethod
-    def get_ODs(cls, obtrange):
+    def get_obt_range_from_ods(self, freq=None, ods=None):
+        if ods is None:
+            ods = self.ods
+        if freq is None:
+            freq = self.f.freq
+        conn = sqlite3.connect(self.config['database'])
+        c = conn.cursor()
+        query = c.execute('select startOBT, endOBT from efdd_od_ranges where freq=? and od in ? order by od ASC', (freq, ods))
+        c.close()
+        obt_ranges = [[q[0]/2.**16, q[1]/2.**16] for q in query]
+        return obt_ranges
+
+    def get_obt_range_from_od_range(self, freq=None, od_range=None):
+        if od_range is None:
+            od_range = self.od_range
+        if freq is None:
+            freq = self.f.freq
+        conn = sqlite3.connect(self.config['database'])
+        c = conn.cursor()
+        obt_range = []
+        for obt_tag, od in zip(['startOBT','endOBT'], od_range):
+            query = c.execute('select %s from efdd_od_ranges where freq=? and od==?' % obt_tag, (freq, od))
+            obt_range.append(query.fetchone()[0]/2.**16)
+        c.close()
+        return obt_range
+
+    def get_ODs(self, obtrange):
         """List of ODs within the obt range provided"""
         assert obtrange[1]>=obtrange[0]
         conn = sqlite3.connect(self.config['database'])
@@ -72,19 +101,19 @@ class DataSelector(object):
         c.close()
         return ods
 
-    @classmethod
-    def latest_exchange(cls, freq, ods, exchangefolder = None, type = 'R'):
+    def latest_exchange(self, freq, ods, exchangefolder = None, type = 'R'):
         """Returns the latest version of an exchange format file"""
         single = False
         if isinstance(ods, int):
             ods = [ods]
             single = True
         if exchangefolder is None:
-            exchangefolder = cls.config['exchangefolder'][freq2inst(freq)]
+            exchangefolder = self.config['exchangefolder'][freq2inst(freq)]
         if glob.glob(exchangefolder + '/*.fits'):
             ods = [0]
         if type == 'K':
             type = ''
+        EFF = []
         for od in ods:
             pattern = '/*%03d-%04d-%s*.fits' % (freq, od, type)
             if od:
@@ -99,3 +128,9 @@ class DataSelector(object):
         if single:
             EFF = EFF[0]
         return EFF
+
+if __name__ == '__main__':
+    ds = DataSelector(channels=30)
+    ds.by_od_range([100, 120])
+    ds.get_EFF()
+    ds.get_AHF()

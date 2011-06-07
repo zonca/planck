@@ -75,6 +75,9 @@ class FrequencySet(ChannelBase):
     def wn(self):
         return np.mean([ch.wn for ch in self.ch])
 
+def freq2inst(freq):
+    return ['LFI','HFI'][freq>=100]
+
 class Instrument(object):
     '''Common base class for LFI and HFI'''
 
