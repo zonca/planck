@@ -9,7 +9,6 @@ instrument_db = ''
 savfilename = ''
 AHF_limits = ''
 siam = ''
-#siam = '/project/projectdirs/planck/data/mission/SIAM/siam_IMO244_100720.m3'
 PIX2ODPATH = ''
 HFI_calibfile = ''
 
