@@ -46,6 +46,10 @@ class LFIChannel(Planck.Channel):
         import dipole
         return dipole.Planck_to_RJ(data, self.centralfreq)
 
+    @property
+    def eff_tag(self):
+        return self.tag
+
 
 class LFIFrequencySet(Planck.FrequencySet):
     
@@ -59,7 +63,7 @@ class LFI(Planck.Instrument):
     Channel = LFIChannel
     FrequencySet = LFIFrequencySet
 
-    def __init__(self, name = 'LFI', rimo = private.LFI_rimo, instrument_db = private.instrument_db):
+    def __init__(self, name = 'LFI', rimo = private.rimo['LFI'], instrument_db = private.instrument_db):
         super(LFI, self).__init__(name,rimo)
         self.instrument_db_file = instrument_db
 

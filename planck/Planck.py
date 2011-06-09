@@ -2,6 +2,11 @@ import pyfits
 import numpy as np
 from exceptions import KeyError
 import itertools
+import operator
+
+def group_by_horn(chlist):
+    return itertools.groupby(chlist, operator.attrgetter('horn'))
+    
 
 def parse_channels(chfreq):
     if chfreq is None:

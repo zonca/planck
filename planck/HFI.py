@@ -27,6 +27,10 @@ class HFIChannel(Planck.Channel):
     def Planck_to_RJ(self, data):
         return data / private.mKRJ_2_mKcmb[self.f.freq]
 
+    @property
+    def eff_tag(self):
+        return self.tag.replace('-','_')
+
 class HFI(Planck.Instrument):
     
     uncal = 'R'
@@ -36,7 +40,7 @@ class HFI(Planck.Instrument):
     def load_cal(self):
         self.cal = np.loadtxt(private.HFI_calibfile,dtype=[('ch','S8'),('cal',np.double)])
     
-    def __init__(self, name = 'HFI', rimo =private.HFI_rimo):
+    def __init__(self, name = 'HFI', rimo =private.rimo['HFI']):
         super(HFI, self).__init__(name,rimo)
         self.load_cal()
 
