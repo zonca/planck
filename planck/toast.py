@@ -7,13 +7,24 @@ from metadata import DataSelector
 import pytoast 
 
 def strconv(f):
+    """Formatting for the xml"""
     return "%.16f" % f
 
+def Params(dic=None):
+    """Creates a Toast ParMap from a python dictionary"""
+    params = pytoast.ParMap()
+    if not dic is None:
+        for k,v in dic.iteritems():
+            if isinstance(v, float):
+                v = strconv(v)
+            params[k] = v
+    return params
+        
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, ahf_folder=None, fpdb=None, output_xml='toastrun.xml'):
-        """odrange: list of start and end OD
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml'):
+        """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings"""
         self.odrange = odrange
         self.nside = nside
@@ -29,34 +40,33 @@ class ToastConfig(object):
         self.data_selector.config['exchangefolder'] = 'toast_planck_data/hfi_m3_v41'
         self.data_selector.by_od_range(self.odrange)
 
+        self.wobble = private.WOBBLE
+
     def run(self):
         """Call the python-toast bindings to create the xml configuration file"""
-        # create run
         self.conf = pytoast.Run()
           
-        # Add sky
         sky = self.conf.sky_add ( "sky", "native", pytoast.ParMap() )
 
-        # Add healpix IQU mapset to sky
-        params = pytoast.ParMap()
-          
-        params[ "path" ] = self.outmap
-        params[ "fullsky" ] = "TRUE"
-        params[ "stokes" ] = "IQU"
-        params[ "order" ] = self.ordering
-        params[ "coord" ] = self.coord
-        params[ "nside" ] = str(self.nside)
-        params[ "units" ] = "micro-K"
-          
-        mapset = sky.mapset_add ( "healpix", "healpix", params )
+        mapset = sky.mapset_add ( "healpix", "healpix", 
+            Params({
+                "path"  : self.outmap,
+                "fullsky"  : "TRUE",
+                "stokes"  : "IQU",
+                "order"  : self.ordering,
+                "coord"  : self.coord,
+                "nside"  : str(self.nside),
+                "units"  : "micro-K"
+            }))
 
-        # Add telescope
-        tele = self.conf.telescope_add ( "planck", "native", pytoast.ParMap() )
+        tele = self.conf.telescope_add ( "planck", "planck", 
+            Params({  
+                "wobblepsi2dir":self.wobble["psi2_dir"],
+                "wobblepsi2_ref":self.wobble["psi2_ref"],
+                "wobblepsi1_ref":self.wobble["psi1_ref"],
+            }))
 
-        # Add HFI focalplane
-        params = pytoast.ParMap()
-        params[ "path" ] = self.fpdb
-        fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", params )
+        fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", Params({"path":self.fpdb}) )
 
         self.add_pointing(tele)
         self.add_observations(tele)
@@ -66,16 +76,13 @@ class ToastConfig(object):
 
     def add_pointing(self, telescope):
         # Add pointing files
-        params = pytoast.ParMap()
         for i,ahf in enumerate(self.data_selector.get_AHF()):  
-          params[ "path" ] = str(ahf[0]).replace('att','vel_att')
-          telescope.pointing_add ( "%04d" % i, "planck_ahf", params )
+          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": str(ahf[0]).replace('att','vel_att')}))
 
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
         # Add streamset
-        params = pytoast.ParMap()
-        strset = telescope.streamset_add ( self.f.inst.name, "native", params )
+        strset = telescope.streamset_add ( self.f.inst.name, "native", Params() )
           
         # Add observations
 
@@ -92,29 +99,22 @@ class ToastConfig(object):
         # then the observation will span the time range of the EFF data specified in
         # the "times1", "times2", "times3", etc parameters.
           
-        params = pytoast.ParMap()
-
         eff_files = self.data_selector.get_EFF()
 
         for observation in self.data_selector.get_OBS():  
+            params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
                 params[ "times%d" % (i+1) ] = eff
-            params[ "start" ] = strconv(observation.start)
-            params[ "stop" ] = strconv(observation.stop)
-            obs = strset.observation_add ( "%04d" % observation.od , "planck_exchange", params )
+            obs = strset.observation_add ( "%04d" % observation.od , "planck_exchange", Params(params) )
 
             for pp in observation.PP:
-                params = pytoast.ParMap()
-                params[ "start" ] = strconv(pp.start)
-                params[ "stop" ] = strconv(pp.stop)
-                obs.interval_add( "%05d" % pp.number, "native", params )
+                obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
           
         # Add streams for real data
 
         for ch in self.channels:
-          params = pytoast.ParMap()
           rawname = "raw_" + ch.tag
-          strm = strset.stream_add ( rawname, "native", params )
+          strm = strset.stream_add ( rawname, "native", Params() )
           
           # Add TODs for this stream
           params = pytoast.ParMap()
@@ -128,11 +128,11 @@ class ToastConfig(object):
         params = pytoast.ParMap()
         params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
         for ch in self.channels:
-          params[ "detector" ] = ch.tag
-          params[ "stream" ] = "%s/raw_%s" % (self.f.inst.name, ch.tag)
-          telescope.channel_add ( ch.tag, "native", params )
+            params[ "detector" ] = ch.tag
+            params[ "stream" ] = "%s/raw_%s" % (self.f.inst.name, ch.tag)
+            telescope.channel_add ( ch.tag, "native", params )
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([97, 103], 100, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='toast_planck_data/hfi_m3_v41', ahf_folder='toast_planck_data/AHF_v1', output_xml='toastrun.xml')
+    toast_config = ToastConfig([97, 103], 100, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='toast_planck_data/hfi_m3_v41', output_xml='toastrun.xml')
     toast_config.run()
