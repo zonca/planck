@@ -7,11 +7,6 @@ import ephem
 import datetime
 import private
 import os
-try:
-    from bitstring import ConstBitArray
-except exceptions.ImportError:
-    print('pix2od requires bitstring: easy_install bitstring')
-    sys.exit(1)
 
 OBTSTARTDATE = datetime.datetime(1958,1,1,0,0,0)
 LAUNCH = datetime.datetime(2009, 5, 13, 13, 11, 57, 565826)
