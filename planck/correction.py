@@ -6,7 +6,6 @@ import physcon
 from testenv.lfidipole import SatelliteVelocity
 
 import quaternionarray as qarray
-from pointingtools import mat3_np
 import private
 
 from tabulate_corrections_calc import TabulatedAttitudeCorrections
@@ -53,15 +52,3 @@ def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris):
                         )
 
     return wobble_rotation
-
-def wobble_rotmat(obt, wobble_psi2_model=get_wobble_psi2_maris):
-    """Gets array of OBT and returns an array of quaternions"""
-    from cgkit.cgtypes import mat3, vec3
-
-    R_psi1 = mat3.rotation(private.WOBBLE['psi1_ref'], vec3(0,0,1)).transpose()
-    R_psi2 = mat3.rotation(private.WOBBLE['psi2_ref'], vec3(0,1,0)).transpose()
-    psi2 = wobble_psi2_model(obt[:1])
-    R_psi2T = mat3.rotation(psi2, vec3(0,1,0))
-    wobble_rotation = R_psi1.transpose() * (R_psi2T * (R_psi2 * R_psi1))
-                                                                                                                                                               
-    return mat3_np(wobble_rotation)

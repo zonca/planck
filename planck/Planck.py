@@ -60,6 +60,22 @@ class Channel(ChannelBase):
     def n(self):
         return self.fromMS[self.arm]
 
+    def get_beam_real(self, m_b, component='main'):
+        """Return real"""
+        if m_b == -1:
+            return -1 * private.BEAM[component][self.tag][-m_b]
+        else:
+            return private.BEAM[component][self.tag][m_b]
+
+    def get_beam_imag(self, m_b, component='main'):
+        """Return imaginary"""
+        if m_b == -1:
+            return private.BEAM[component][self.tag][2]
+        elif m_b == 0:
+            return 0
+        elif m_b == 1:
+            return private.BEAM[component][self.tag][2]
+
 class FrequencySet(ChannelBase):
     def __init__(self, freq, ch, inst=None):
         self.freq = freq
@@ -114,6 +130,8 @@ class Instrument(object):
     
 import LFI
 import HFI
+import private
+
 
 class Planck(object):
     '''Planck class, gives an iterator .ch for all LFI and HFI channels'''
@@ -128,3 +146,4 @@ class Planck(object):
             return self.inst['LFI'][key]
         except KeyError:
             return self.inst['HFI'][key]
+
