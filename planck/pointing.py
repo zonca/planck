@@ -13,7 +13,24 @@ from pointingtools import *
 from cgkit.cgtypes import *
 import physcon
 import pfits
+import pyfits
 import correction
+import glob
+
+class DiskPointing(object):
+    '''Read pointing from disk'''
+    def __init__(self, od, freq, folder=None):
+        self.folder = folder or private.pointingfolder
+        self.filename = glob.glob(self.folder + '/%04d/?%03d-*.fits' % (od,freq))[0]
+
+    def get_3ang(self, ch):
+        data = np.array(pyfits.getdata(self.filename, ch.tag))
+        return data['THETA'], data['PHI'], data['PSI']
+
+    def get(self, ch):
+        import healpy
+        theta, phi, psi = self.get_3ang(ch)
+        return healpy.ang2vec(theta, phi)
 
 class Pointing(object):
     '''Pointing interpolation and rotation class
@@ -63,8 +80,8 @@ class Pointing(object):
             qsatgal = quaternion_ecl2gal(qsat)
 
         #debug_here()
-        if self.wobble and len(self.ahfobt)<len(obt):
-            qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
+        #if self.wobble and len(self.ahfobt)<len(obt):
+        #    qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
 
         if interp is None:
             self.qsatgal_interp = qsatgal 
@@ -73,8 +90,10 @@ class Pointing(object):
             interpfunc = getattr(qarray, interp)
             self.qsatgal_interp = interpfunc(obt, self.ahfobt, qsatgal)
 
-        if self.wobble and len(self.ahfobt)>=len(obt):
+        #if self.wobble and len(self.ahfobt)>=len(obt):
+        if self.wobble:
             self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
+            qarray.norm_inplace(self.qsatgal_interp)
 
         l.info('Quaternions interpolated')
         self.siam = Siam(horn_pointing)

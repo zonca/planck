@@ -9,6 +9,7 @@ import quaternionarray as qarray
 import private
 
 from tabulate_corrections_calc import TabulatedAttitudeCorrections
+#from IPython.Debugger import Tracer; debug_here = Tracer()
 
 def deaberration(vec, obt, coord):
     satvel = SatelliteVelocity(coord).orbital_v(obt)
@@ -51,4 +52,5 @@ def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris):
                             )
                         )
 
+    #debug_here()
     return wobble_rotation
