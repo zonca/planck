@@ -12,8 +12,7 @@ import private
 from pointingtools import *
 from cgkit.cgtypes import *
 import physcon
-import pfits
-import pyfits
+import pycfitsio
 import correction
 import glob
 
@@ -24,8 +23,8 @@ class DiskPointing(object):
         self.filename = glob.glob(self.folder + '/%04d/?%03d-*.fits' % (od,freq))[0]
 
     def get_3ang(self, ch):
-        data = np.array(pyfits.getdata(self.filename, ch.tag))
-        return data['THETA'], data['PHI'], data['PSI']
+        h = pycfitsio.open(self.filename)[ch.tag]
+        return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
 
     def get(self, ch):
         import healpy
@@ -41,10 +40,9 @@ class Pointing(object):
     >>> vec = pnt.get(ch) #rotates to detector frame and gives x,y,z vector
     >>> pix = pnt.get_pix(ch, 2048, nest=True) #healpix pixel number nside 2048
     '''
+    comp =  ['X','Y','Z','S']
 
-    fields= ['OBT_SPL','QUATERNION_X','QUATERNION_Y','QUATERNION_Z','QUATERNION_S']
-
-    def __init__(self,obt,coord='G', AHF_d=None, horn_pointing=False, deaberration=True, wobble=True, interp='slerp'):
+    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp'):
         '''AHF_d is the pfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
@@ -52,45 +50,40 @@ class Pointing(object):
         self.deaberration = deaberration
         self.wobble = wobble
 
-        if  AHF_d is None:
-            files = AHF_btw_OBT(obt)
-            l.debug('reading files %s' % str(files))
-            AHF_data_iter = [pfits.FITS(f+'[ATT-HIST-HGH][col %s]' % (';'.join(self.fields))).get_hdus()[1].get_data() for f in files]
-        else:
-            AHF_data_iter = AHF_d
+        filenames = AHF_btw_OBT(obt)
+        files = [pycfitsio.open(f) for f in filenames]
+        l.debug('reading files %s' % str(files))
+        AHF_data_iter = [f[0] for f in files]
 
-        ahfobt = np.array([])
-        qsat = None
-        l.debug('concatenating quaternions')
-        for AHF_data in AHF_data_iter:
-            AHF_data['OBT_SPL'] /= 2.**16
+        l.debug('reading files')
 
-        i_start = max(AHF_data_iter[0]['OBT_SPL'].searchsorted(obt[0])-1,0)
-        i_end = min(AHF_data_iter[-1]['OBT_SPL'].searchsorted(obt[-1])+1,len(AHF_data_iter[-1]['OBT_SPL'])-1)
-        for field in self.fields:
-            AHF_data_iter[0][field]=AHF_data_iter[0][field][i_start:]
-            AHF_data_iter[-1][field]=AHF_data_iter[-1][field][:i_end]
-        
-        qsat = np.hstack([np.concatenate([AHF_data['QUATERNION_%s' % comp] for AHF_data in AHF_data_iter]).reshape((-1,1)) for comp in ['X','Y','Z','S']])
-        self.ahfobt = np.concatenate([AHF_data['OBT_SPL'] for AHF_data in AHF_data_iter])
+        ahf_obt = np.concatenate([h.read_column('OBT_SPL') for h in AHF_data_iter])
+        ahf_obt /= 2.**16
+        i_start = max(ahf_obt.searchsorted(obt[0])-1,0)
+        i_end = min(ahf_obt.searchsorted(obt[-1])+1,len(ahf_obt)-1)
+        ahf_obt = ahf_obt[i_start:i_end]
 
-        if coord == 'E':
-            qsatgal = qsat
-        elif coord == 'G':
-            qsatgal = quaternion_ecl2gal(qsat)
+        ahf_quat = np.empty((len(ahf_obt),4))
+        for i,c in enumerate(self.comp):
+            ahf_quat[:,i] = np.concatenate([h.read_column('QUATERNION_'+c) for h in AHF_data_iter])[i_start:i_end]
+
+        if coord == 'G':
+            ahf_quat = quaternion_ecl2gal(ahf_quat)
 
         #debug_here()
-        #if self.wobble and len(self.ahfobt)<len(obt):
+        #if self.wobble and len(ahf_obt)<len(obt):
         #    qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
 
         if interp is None:
-            self.qsatgal_interp = qsatgal 
+            self.qsatgal_interp = ahf_quat 
+            # save AHF obt for later interpolation
+            self.ahf_obt = ahf_obt
         else:
             l.info('Interpolating quaternions with %s' % interp)
             interpfunc = getattr(qarray, interp)
-            self.qsatgal_interp = interpfunc(obt, self.ahfobt, qsatgal)
+            self.qsatgal_interp = interpfunc(obt, ahf_obt, ahf_quat)
 
-        #if self.wobble and len(self.ahfobt)>=len(obt):
+        #if self.wobble and len(ahf_obt)>=len(obt):
         if self.wobble:
             self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
             qarray.norm_inplace(self.qsatgal_interp)
@@ -100,6 +93,10 @@ class Pointing(object):
 
         self.obt = obt
         self.coord = coord
+
+        l.debug('Closing AHF files')
+        for f in files:
+            f.close()
 
     def interp_get(self, rad):
         '''Interpolation after rotation to gal frame'''
@@ -117,9 +114,6 @@ class Pointing(object):
         rad = Planck.parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
-        #if self.wobble:
-        #    x = qarray.rotate(correction.wobble(self.obt), x)
-        #    qarray.norm_inplace(x)
         vec = qarray.rotate(self.qsatgal_interp, x)
         qarray.norm_inplace(vec)
         if self.deaberration:

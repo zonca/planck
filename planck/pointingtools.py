@@ -117,7 +117,7 @@ def quaternion_ecl2gal(qsat):
     l.info('Rotating to Galactic frame')
     qsatgal = qarray.mult(QECL2GAL ,qsat)
     # renormalizing to unity
-    qsatgal = qarray.norm(qsatgal)
+    qarray.norm_inplace(qsatgal)
     return qsatgal
 
 def vector_ecl2gal(vecl):
