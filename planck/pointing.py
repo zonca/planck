@@ -10,26 +10,9 @@ from utils import grouper
 import Planck
 import private
 from pointingtools import *
-from cgkit.cgtypes import *
-import physcon
 import pycfitsio
 import correction
 import glob
-
-class DiskPointing(object):
-    '''Read pointing from disk'''
-    def __init__(self, od, freq, folder=None):
-        self.folder = folder or private.pointingfolder
-        self.filename = glob.glob(self.folder + '/%04d/?%03d-*.fits' % (od,freq))[0]
-
-    def get_3ang(self, ch):
-        h = pycfitsio.open(self.filename)[ch.tag]
-        return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
-
-    def get(self, ch):
-        import healpy
-        theta, phi, psi = self.get_3ang(ch)
-        return healpy.ang2vec(theta, phi)
 
 class Pointing(object):
     '''Pointing interpolation and rotation class
@@ -170,3 +153,19 @@ class Pointing(object):
             return map(np.rad2deg, ang)
         else:
             return ang
+
+class DiskPointing(Pointing):
+    '''Read pointing from disk'''
+    def __init__(self, od, freq, folder=None):
+        self.folder = folder or private.pointingfolder
+        self.filename = glob.glob(self.folder + '/%04d/?%03d-*.fits' % (od,freq))[0]
+
+    def get_3ang(self, ch):
+        l.debug('Reading %s' % self.filename)
+        h = pycfitsio.open(self.filename)[ch.tag]
+        return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
+
+    def get(self, ch):
+        import healpy
+        theta, phi, psi = self.get_3ang(ch)
+        return healpy.ang2vec(theta, phi)

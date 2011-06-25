@@ -1,7 +1,7 @@
 import logging as l
 import numpy as np
 
-import physcon
+import scipy.constants as physcon
 
 from testenv.lfidipole import SatelliteVelocity
 
