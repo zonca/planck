@@ -50,7 +50,11 @@ class Channel(ChannelBase):
 
     @property
     def sampling_freq(self):
-        return self.rimo['F_SAMP']
+        return float(self.rimo['F_SAMP'])
+
+    @property
+    def white_noise(self): 
+        return float(self.rimo['NET'])
 
     @property
     def pair(self):
