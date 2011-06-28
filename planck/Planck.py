@@ -67,9 +67,9 @@ class Channel(ChannelBase):
     def get_beam_real(self, m_b, component='main'):
         """Return real"""
         if m_b == -1:
-            return -1 * private.BEAM[component][self.tag][-m_b]
+            return 2 * -1 * private.BEAM[component][self.tag][-m_b]
         else:
-            return private.BEAM[component][self.tag][m_b]
+            return 2 * private.BEAM[component][self.tag][m_b]
 
     def get_beam_imag(self, m_b, component='main'):
         """Return imaginary"""
