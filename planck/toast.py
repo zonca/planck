@@ -8,7 +8,7 @@ import pytoast
 
 def strconv(f):
     """Formatting for the xml"""
-    return "%.16f" % f
+    return "%.16g" % f
 
 def Params(dic=None):
     """Creates a Toast ParMap from a python dictionary"""
@@ -123,6 +123,17 @@ class ToastConfig(object):
             params[ "hdu" ] = ch.eff_tag
             params[ "path" ] = eff
             strm.tod_add ( "%s_%d" % (ch.tag, od), "planck_exchange", params )
+
+        # Add white-noise 1 PSD per mission
+        for ch in self.channels:
+            noise_name = "noise_" + ch.tag
+            noise_stream = strset.noise_add ( noise_name, "native", Params() )
+            noise_stream.psd_add ( "white", "native", Params({
+                "start" : strset.observations()[0].start(),
+                "stop" : strset.observations()[-1].stop(),
+                "rate": ch.sampling_freq,
+                "rms": ch.white_noise 
+            }))
             
     def add_channels(self, telescope):
         params = pytoast.ParMap()
@@ -130,6 +141,7 @@ class ToastConfig(object):
         for ch in self.channels:
             params[ "detector" ] = ch.tag
             params[ "stream" ] = "%s/raw_%s" % (self.f.inst.name, ch.tag)
+            params[ "noise" ] = "%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( ch.tag, "native", params )
           
 if __name__ == '__main__':
