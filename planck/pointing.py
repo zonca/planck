@@ -54,8 +54,8 @@ class Pointing(object):
             ahf_quat = quaternion_ecl2gal(ahf_quat)
 
         #debug_here()
-        #if self.wobble and len(ahf_obt)<len(obt):
-        #    qsatgal = qarray.mult(qsatgal, correction.wobble(self.ahfobt))
+        #if self.wobble:
+        #   ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt))
 
         if interp is None:
             self.qsatgal_interp = ahf_quat 
@@ -66,7 +66,6 @@ class Pointing(object):
             interpfunc = getattr(qarray, interp)
             self.qsatgal_interp = interpfunc(obt, ahf_obt, ahf_quat)
 
-        #if self.wobble and len(ahf_obt)>=len(obt):
         if self.wobble:
             self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
             qarray.norm_inplace(self.qsatgal_interp)
