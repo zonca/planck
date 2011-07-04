@@ -37,7 +37,8 @@ class ToastConfig(object):
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
         self.data_selector = DataSelector(channels=self.channels)
-        self.data_selector.config['exchangefolder'] = 'toast_planck_data/hfi_m3_v41'
+        if not exchange_folder is None:
+            self.data_selector.config['exchangefolder'] = exchange_folder
         self.data_selector.by_od_range(self.odrange)
 
         self.wobble = private.WOBBLE
@@ -146,5 +147,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([97, 103], 100, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='toast_planck_data/hfi_m3_v41', output_xml='toastrun.xml')
+    toast_config = ToastConfig([97, 103], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30.xml')
     toast_config.run()
