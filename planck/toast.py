@@ -80,7 +80,7 @@ class ToastConfig(object):
     def add_pointing(self, telescope):
         # Add pointing files
         for i,ahf in enumerate(self.data_selector.get_AHF()):  
-          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": str(ahf[0]).replace('att','vel_att')}))
+          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": str(ahf[0])}))
 
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
