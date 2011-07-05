@@ -23,7 +23,7 @@ def Params(dic=None):
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml'):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings"""
         self.odrange = odrange
@@ -39,6 +39,8 @@ class ToastConfig(object):
         self.data_selector = DataSelector(channels=self.channels)
         if not exchange_folder is None:
             self.data_selector.config['exchangefolder'] = exchange_folder
+        if not ahf_folder is None:
+            self.data_selector.config['ahf_folder'] = ahf_folder
         self.data_selector.by_od_range(self.odrange)
 
         self.wobble = private.WOBBLE

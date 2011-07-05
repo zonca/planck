@@ -1,4 +1,5 @@
 import glob
+import os
 import sqlite3
 import exceptions
 import logging as l
@@ -28,6 +29,7 @@ class DataSelector(object):
         self.config = {}
         self.config['database'] = private.database
         self.config['exchangefolder'] = private.exchangefolder[self.f.inst.name]
+        self.config['ahf_folder'] = private.AHF
         self.efftype = efftype
 
     @property
@@ -65,13 +67,20 @@ class DataSelector(object):
         #FIXME LFI or HFI?
         raise exceptions.NotImplementedError()
 
-    def get_one_AHF(self, obt_range):
+    def get_AHF_ods(self, obt_range):
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
         values = (obt_range[0]*2**16, obt_range[-1]*2**16)
-        query = c.execute('select file_path from ahf_files where endOBT>=? and startOBT<=?', values)
-        files = [q[0] for q in query]
+        query = c.execute('select od from ahf_files where endOBT>=? and startOBT<=?', values)
+        ods = [int(q[0]) for q in query]
         c.close()
+        return ods
+
+    def get_one_AHF(self, obt_range):
+        ods = self.get_AHF_ods(obt_range)
+        files = [glob.glob(
+            os.path.join(self.config['ahf_folder'], '%04d' % od, 'vel*')
+            )[0] for od in ods]
         return files
 
     def get_AHF(self):
