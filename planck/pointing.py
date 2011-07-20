@@ -54,8 +54,9 @@ class Pointing(object):
             ahf_quat = quaternion_ecl2gal(ahf_quat)
 
         #debug_here()
-        #if self.wobble:
-        #   ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt))
+        if self.wobble:
+           ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt))
+           qarray.norm_inplace(ahf_quat)
 
         if interp is None:
             self.qsatgal_interp = ahf_quat 
@@ -66,9 +67,9 @@ class Pointing(object):
             interpfunc = getattr(qarray, interp)
             self.qsatgal_interp = interpfunc(obt, ahf_obt, ahf_quat)
 
-        if self.wobble:
-            self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
-            qarray.norm_inplace(self.qsatgal_interp)
+        #if self.wobble:
+        #    self.qsatgal_interp = qarray.mult(self.qsatgal_interp, correction.wobble(obt))
+        #    qarray.norm_inplace(self.qsatgal_interp)
 
         l.info('Quaternions interpolated')
         self.siam = Siam(horn_pointing)

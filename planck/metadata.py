@@ -16,6 +16,16 @@ except exceptions.ImportError:
 Period = namedtuple('Period', ['number','start','stop'])
 Observation = namedtuple('Observation', ['od','start','stop','PP','EFF'])
 
+def obt2od(obt, freq=30):
+    """Get precise OD from obt stamp2"""
+    conn = sqlite3.connect(private.database)
+    c = conn.cursor()
+    query = c.execute('select startOBT, endOBT, od from efdd_od_ranges where startOBT<%d and endOBT>%d' % (obt,obt))
+    q = query.fetchone()
+    od = int(q[2]) + float((obt-q[0]))/(q[1]-q[0])
+    c.close()
+    return od
+
 class DataSelector(object):
     """Planck data selector
     channels can be integer frequency, list of channel names (same frequency) or a single channel name string

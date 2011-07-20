@@ -23,7 +23,7 @@ def Params(dic=None):
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU'):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings"""
         self.odrange = odrange
@@ -44,6 +44,7 @@ class ToastConfig(object):
         self.data_selector.by_od_range(self.odrange)
 
         self.wobble = private.WOBBLE
+        self.components = components
 
     def run(self):
         """Call the python-toast bindings to create the xml configuration file"""
@@ -51,11 +52,11 @@ class ToastConfig(object):
           
         sky = self.conf.sky_add ( "sky", "native", pytoast.ParMap() )
 
-        mapset = sky.mapset_add ( "healpix", "healpix", 
+        mapset = sky.mapset_add ( '_'.join(['healpix',self.components, self.ordering]), "healpix", 
             Params({
                 "path"  : self.outmap,
                 "fullsky"  : "TRUE",
-                "stokes"  : "IQU",
+                "stokes"  : self.components,
                 "order"  : self.ordering,
                 "coord"  : self.coord,
                 "nside"  : str(self.nside),
@@ -149,5 +150,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([97, 103], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30.xml')
+    toast_config = ToastConfig([100, 100], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='oneod.xml')
     toast_config.run()
