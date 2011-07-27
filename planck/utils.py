@@ -17,6 +17,7 @@ def pix2od(ch, pixels):
     it returns a list of sets.
     Each set contains the ODs hit by each pixel
     """
+    from bitstring import ConstBitArray
     filename = os.path.join(private.PIX2ODPATH, 'od_by_pixel_%s.bin' % ch.replace('M','S'))
     pixels_by_od = ConstBitArray(filename = filename)
     odrange = [91, 563+1]
