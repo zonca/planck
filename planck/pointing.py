@@ -25,7 +25,7 @@ class Pointing(object):
     '''
     comp =  ['X','Y','Z','S']
 
-    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp'):
+    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0):
         '''AHF_d is the pfits AHF data if already loaded in the main file
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
@@ -55,7 +55,7 @@ class Pointing(object):
 
         #debug_here()
         if self.wobble:
-           ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt))
+           ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt,offset=wobble_offset))
            qarray.norm_inplace(ahf_quat)
 
         if interp is None:
@@ -72,7 +72,7 @@ class Pointing(object):
         #    qarray.norm_inplace(self.qsatgal_interp)
 
         l.info('Quaternions interpolated')
-        self.siam = Siam(horn_pointing)
+        self.siam = Siam(horn_pointing, siamfile=siamfile)
 
         self.obt = obt
         self.coord = coord

@@ -3,7 +3,7 @@ import numpy as np
 
 import scipy.constants as physcon
 
-from testenv.lfidipole import SatelliteVelocity
+from dipole import SatelliteVelocity
 
 import quaternionarray as qarray
 import private
@@ -37,13 +37,13 @@ def get_wobble_psi2(obt, filename=None):
                 np.interp(obt, w[:,1]/2**16, w[:,2])/60.
             )
 
-def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris):
+def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris, offset=0):
     """Gets array of OBT and returns an array of quaternions"""
 
     R_psi1 = qarray.inv(qarray.rotation([0,0,1], private.WOBBLE['psi1_ref']))
     R_psi2 = qarray.inv(qarray.rotation([0,1,0], private.WOBBLE['psi2_ref']))
 
-    psi2 = wobble_psi2_model(obt)
+    psi2 = wobble_psi2_model(obt) - offset
     R_psi2T = qarray.rotation([0,1,0], psi2)
 
     wobble_rotation = qarray.mult(qarray.inv(R_psi1),
