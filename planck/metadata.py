@@ -108,7 +108,7 @@ class DataSelector(object):
     def get_PP(self, od):
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
-        query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? order by pointID_unique ASC', (str(od),))
+        query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? order by start_time ASC', (str(od),))
         PP = [Period(int(q[0]),q[1]/2.**16,q[2]/2.**16) for q in query]
         c.close()
         return PP
