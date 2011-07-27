@@ -1,3 +1,4 @@
+import exceptions
 import glob
 import os
 import sqlite3
@@ -35,10 +36,18 @@ class DataSelector(object):
 
     def __init__(self, channels=None, efftype='R'):
         self.channels = parse_channels(channels)
-        self.f = self.channels[0].f
+
+        if self.channels is None:
+            self.f = None
+        else:
+            self.f = self.channels[0].f
         self.config = {}
         self.config['database'] = private.database
-        self.config['exchangefolder'] = private.exchangefolder[self.f.inst.name]
+        if self.channels is None:
+            self.config['exchangefolder'] = None
+        else:
+            self.config['exchangefolder'] = private.exchangefolder[self.f.inst.name]
+
         self.config['ahf_folder'] = private.AHF
         self.efftype = efftype
 
