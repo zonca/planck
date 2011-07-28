@@ -17,13 +17,15 @@ def Params(dic=None):
         for k,v in dic.iteritems():
             if isinstance(v, float):
                 v = strconv(v)
+            else:
+                v = str(v)
             params[k] = v
     return params
         
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU'):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=1, flagmask=255):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings"""
         self.odrange = odrange
@@ -45,6 +47,9 @@ class ToastConfig(object):
 
         self.wobble = private.WOBBLE
         self.components = components
+
+        self.obtmask = obtmask
+        self.flagmask = flagmask
 
     def run(self):
         """Call the python-toast bindings to create the xml configuration file"""
@@ -121,12 +126,13 @@ class ToastConfig(object):
           strm = strset.stream_add ( rawname, "native", Params() )
           
           # Add TODs for this stream
-          params = pytoast.ParMap()
-          params[ "flagmask" ] = "1"
+          params = {}
+          params[ "flagmask" ] = self.flagmask
+          params[ "obtmask" ] = self.obtmask
           for od, eff in zip(self.data_selector.ods, eff_files):
             params[ "hdu" ] = ch.eff_tag
             params[ "path" ] = eff
-            strm.tod_add ( "%s_%d" % (ch.tag, od), "planck_exchange", params )
+            strm.tod_add ( "%s_%d" % (ch.tag, od), "planck_exchange", Params(params) )
 
         # Add white-noise 1 PSD per mission
         for ch in self.channels:
@@ -150,5 +156,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([100, 100], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='oneod.xml')
+    toast_config = ToastConfig([100, 120], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_t.xml')
     toast_config.run()
