@@ -21,13 +21,18 @@ def Params(dic=None):
                 v = str(v)
             params[k] = v
     return params
-        
+
+DEFAULT_OBTMASK = {'LFI':1, 'HFI':1}
+DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
+
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=1, flagmask=255):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
-           channels: one of integer frequency, channel string, list of channel strings"""
+           channels: one of integer frequency, channel string, list of channel strings
+           obtmask and flagmask: default LFI 1,255 HFI 1,1
+           """
         self.odrange = odrange
         self.nside = nside
         self.coord = coord
@@ -48,8 +53,8 @@ class ToastConfig(object):
         self.wobble = private.WOBBLE
         self.components = components
 
-        self.obtmask = obtmask
-        self.flagmask = flagmask
+        self.obtmask = obtmask or DEFAULT_OBTMASK[self.f.inst.name]
+        self.flagmask = flagmask or DEFAULT_FLAGMASK[self.f.inst.name]
 
     def run(self):
         """Call the python-toast bindings to create the xml configuration file"""
