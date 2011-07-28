@@ -171,7 +171,7 @@ def eff_ods_from_obt_range(freq, obt_range, database=None):
 def get_obt_range_from_od(od, database=None):
     conn = sqlite3.connect(database or private.database)
     c = conn.cursor()
-    query = c.execute('select start_time,end_time from list_ahf_infos where od==? order by pointID_unique ASC', (str(od),))
+    query = c.execute('select start_time,end_time from list_ahf_infos where od==? order by start_time ASC', (str(od),))
     all = query.fetchall()
     obt_range = (all[0][0]/2.**16, all[-1][-1]/2.**16)
     c.close()
