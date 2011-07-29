@@ -196,7 +196,7 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         if od:
             pattern = os.path.join('%04d' % od, pattern)
         l.debug('Exchange format: %s' % (os.path.join(exchangefolder, pattern)))
-        allversions = glob.glob(exchangefolder + pattern)
+        allversions = glob.glob(os.path.join(exchangefolder, pattern))
         if not allversions:
             error_message = 'Cannot find file from pattern: %s' % (exchangefolder +         pattern)
             l.error(error_message)
