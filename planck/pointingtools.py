@@ -91,7 +91,7 @@ def AHF_btw_OBT(obt):
 
     conn = sqlite3.connect('/project/projectdirs/planck/user/zonca/remix/database.db')
     c = conn.cursor()
-    values = (obt[0]*2**16, obt[-1]*2**16)
+    values = ((obt[0]-60*5)*2**16, (obt[-1]+60*5)*2**16)
     query = c.execute('select file_path from ahf_files where endOBT>=? and startOBT<=?', values)
     files = [q[0] for q in query]
     c.close()

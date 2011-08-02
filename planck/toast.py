@@ -4,7 +4,10 @@ import private
 from Planck import parse_channels
 from metadata import DataSelector
 
+import logging as l
 import pytoast 
+
+l.basicConfig(level=l.INFO)
 
 def strconv(f):
     """Formatting for the xml"""
@@ -28,11 +31,12 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings
            obtmask and flagmask: default LFI 1,255 HFI 1,1
            """
+        l.root.level = log_level
         self.odrange = odrange
         self.nside = nside
         self.coord = coord

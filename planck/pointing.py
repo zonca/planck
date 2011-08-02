@@ -26,7 +26,7 @@ class Pointing(object):
     comp =  ['X','Y','Z','S']
 
     def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0):
-        '''AHF_d is the pfits AHF data if already loaded in the main file
+        '''
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
         #get ahf limits
@@ -105,6 +105,19 @@ class Pointing(object):
             qarray.norm_inplace(vec)
         l.info('Rotated to detector %s' % rad)
         return vec
+
+    def inv(self, rad, vec):
+        rad = Planck.parse_channel(rad)
+        l.info('Rotating to detector %s' % rad)
+        if self.deaberration:
+            l.warning('Applying deaberration correction')
+            vec -= correction.simple_deaberration(vec, self.obt, self.coord)
+            qarray.norm_inplace(vec)
+        vec_rad = qarray.rotate(qarray.inv(self.qsatgal_interp), vec)
+        invsiam = np.linalg.inv(self.siam.get(rad))
+        #invsiamquat = qarray.inv(qarray.norm(qarray.from_rotmat(self.siam.get(rad))))
+        #qarray.rotate(invsiamquat, vec_rad)
+        return np.array([np.dot(invsiam , row) for row in vec_rad])
 
     def compute_psi(self, theta, phi, rad):
         z = np.dot(self.siam.get(rad),[0, 0, 1])
