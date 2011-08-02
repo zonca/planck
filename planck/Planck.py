@@ -102,7 +102,7 @@ class FrequencySet(ChannelBase):
 
 def freq2inst(freq):
     return ['LFI','HFI'][freq>=100]
-
+EXCLUDED_CH = ['143-8', '545-3', '857-4']
 class Instrument(object):
     '''Common base class for LFI and HFI'''
 
@@ -117,6 +117,7 @@ class Instrument(object):
         rimo_file.sort()
         self.rimo_fields = rimo_file.dtype.names
         self.ch = map(self.Channel, rimo_file, [self]*len(rimo_file))
+        self.ch = [ch for ch in self.ch if ch.tag not in EXCLUDED_CH]
         self.chdict = dict( (ch.tag, ch) for ch in self.ch)
         self.f = self.create_frequency_sets()
 
