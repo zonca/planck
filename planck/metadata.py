@@ -15,7 +15,7 @@ except exceptions.ImportError:
     raise
 
 Period = namedtuple('Period', ['number','start','stop'])
-Observation = namedtuple('Observation', ['od','start','stop','PP','EFF'])
+Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF'])
 
 def obt2od(obt, freq=30):
     """Get precise OD from obt stamp2"""
@@ -32,7 +32,9 @@ class DataSelector(object):
     channels can be integer frequency, list of channel names (same frequency) or a single channel name string
     efftype is R for reduced, C for converted [uncal with dip]
     ods are the AHF ODs
-    eff_ods are the EFF ODs"""
+    eff_ods are the EFF ODs
+    
+    some configuration options can be modified after creating the object by accessing the .config dictionary"""
 
     def __init__(self, channels=None, efftype='R'):
         self.channels = parse_channels(channels)
@@ -43,6 +45,7 @@ class DataSelector(object):
             self.f = self.channels[0].f
         self.config = {}
         self.config['database'] = private.database
+        self.config['breaks'] = private.TOAST['breaks']
         if self.channels is None:
             self.config['exchangefolder'] = None
         else:
@@ -108,13 +111,40 @@ class DataSelector(object):
     def get_EFF(self):
         return self.latest_exchange(self.eff_ods)
 
-    def get_OBS(self):
+    def get_OD_OBS(self):
+        """Gets one observation for each Operational Day"""
         OBS = []
         for od, obt_range in zip(self.ods, self.obt_ranges):
-            OBS.append(Observation(od=od, start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods_from_obt_range(self.f.freq, obt_range))))
+            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods_from_obt_range(self.f.freq, obt_range))))
+        return OBS
+
+    def get_OBS(self):
+        """Checks the breaks table and splits the observations accordingly"""
+        OBS = self.get_OD_OBS()
+
+        conn = sqlite3.connect(self.config['breaks'])
+        c = conn.cursor()
+        #obt are in clocks in the database
+        query = c.execute('select od, startobt, stopobt from eff_breaks where freq=? and startobt > ? and stopobt < ?', (self.f.freq,OBS[0].start*2**16, OBS[-1].stop*2**16))
+        for od, startobt, stopobt in query:
+            #convert in seconds
+            startobt /= 2.**16
+            stopobt /= 2.**16
+            l.warning('Break found in OD %d' % od)
+            try:
+                OB = [o for o in OBS if o.start < stopobt and o.stop > startobt][0]
+            except exceptions.IndexError:
+                l.error('Cannot identify the observation related to the break in OD %d' % od)
+                sys.exit(1)
+            i = OBS.index(OB)
+            splitted_OBS = split_observation(OB, startobt, stopobt)
+            OBS[i] = splitted_OBS[1]
+            OBS.insert(i, splitted_OBS[0])
+        c.close()
         return OBS
 
     def get_PP(self, od):
+        """Gets all the pointing periods in one Operational Day, returns a list of Period named tuples"""
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
         query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? order by start_time ASC', (str(od),))
@@ -206,9 +236,22 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         EFF = EFF[0]
     return EFF
 
+def split_observation(OB, startobt, stopobt):
+    """Splits one observation in 2 observations"""
+    PP1 = [p for p in OB.PP if p.start < startobt]
+    PP1[-1] = Period(PP1[-1].number, PP1[-1].start, startobt)
+    OB1 = Observation(od=OB.od, tag=OB.tag + 'a', start=OB.start, stop=startobt, PP=PP1, EFF=OB.EFF)
+
+    PP2 = [p for p in OB.PP if p.stop > stopobt]
+    PP2[0] = Period(PP2[0].number, stopobt, PP2[0].stop)
+    OB2 = Observation(od=OB.od, tag=OB.tag + 'b', start=stopobt, stop=OB.stop, PP=PP2, EFF=OB.EFF)
+
+    return OB1, OB2
+
+
 if __name__ == '__main__':
-    ds = DataSelector(channels=100)
-    ds.config['exchangefolder'] = 'toast_planck_data/hfi_m3_v41'
+    ds = DataSelector(channels=30)
+    ds.config['exchangefolder'] = '/u/zonca/s/data/LFI_369S_dx6flag_hrflag_conv/'
     ds.by_od_range([97, 103])
     print(ds.get_EFF())
     print(ds.get_AHF())

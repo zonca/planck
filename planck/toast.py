@@ -123,7 +123,7 @@ class ToastConfig(object):
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
                 params[ "times%d" % (i+1) ] = eff
-            obs = strset.observation_add ( "%04d" % observation.od , "planck_exchange", Params(params) )
+            obs = strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
             for pp in observation.PP:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
@@ -165,5 +165,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([100, 120], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_t.xml')
+    toast_config = ToastConfig([97, 100], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
     toast_config.run()
