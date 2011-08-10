@@ -165,5 +165,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([97, 100], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
+    toast_config = ToastConfig([451, 458], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
     toast_config.run()

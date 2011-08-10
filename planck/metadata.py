@@ -52,6 +52,7 @@ class DataSelector(object):
             self.config['exchangefolder'] = private.exchangefolder[self.f.inst.name]
 
         self.config['ahf_folder'] = private.AHF
+        self.config['exclude_454_455'] = True
         self.efftype = efftype
 
     @property
@@ -77,6 +78,12 @@ class DataSelector(object):
         """ods is a list of start and stop OD (INCLUDED)"""
         self.od_range = od_range
         self._ods = range(od_range[0], od_range[1]+1)
+        if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+            for OD in [454, 455]:
+                try:
+                    self._ods.remove(OD)
+                except:
+                    pass
     
 
     def by_obt(self, obt_ranges):
@@ -115,7 +122,14 @@ class DataSelector(object):
         """Gets one observation for each Operational Day"""
         OBS = []
         for od, obt_range in zip(self.ods, self.obt_ranges):
-            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods_from_obt_range(self.f.freq, obt_range))))
+            eff_ods = eff_ods_from_obt_range(self.f.freq, obt_range)
+            if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+                for OD in [454, 455]:
+                    try:
+                        eff_ods.remove(OD)
+                    except:
+                        pass
+            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods)))
         return OBS
 
     def get_OBS(self):
@@ -185,7 +199,14 @@ class DataSelector(object):
     @property
     def eff_ods(self):
         """List of ODs within the obt range provided"""
-        return eff_ods_from_obt_range(self.f.freq, [self.obt_ranges[0][0], self.obt_ranges[-1][-1]])
+        eff_ods = eff_ods_from_obt_range(self.f.freq, [self.obt_ranges[0][0], self.obt_ranges[-1][-1]])
+        if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+            for OD in [454, 455]:
+                try:
+                    eff_ods.remove(OD)
+                except:
+                    pass
+        return eff_ods
 
     def latest_exchange(self, od):
         return latest_exchange(self.f.freq, od, self.config['exchangefolder'], self.efftype)
@@ -251,8 +272,8 @@ def split_observation(OB, startobt, stopobt):
 
 if __name__ == '__main__':
     ds = DataSelector(channels=30)
-    ds.config['exchangefolder'] = '/u/zonca/s/data/LFI_369S_dx6flag_hrflag_conv/'
-    ds.by_od_range([97, 103])
+    ds.config['exchangefolder'] = '/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/'
+    ds.by_od_range([452, 457])
     print(ds.get_EFF())
     print(ds.get_AHF())
     print(ds.get_OBS())
