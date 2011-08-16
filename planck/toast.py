@@ -116,9 +116,16 @@ class ToastConfig(object):
         # For "planck_exchange" format, if no "start" or "stop" times are specified,
         # then the observation will span the time range of the EFF data specified in
         # the "times1", "times2", "times3", etc parameters.
-          
-        eff_files = self.data_selector.get_EFF()
 
+        # Add streams for real data
+
+        strm = {}
+
+        for ch in self.channels:
+          rawname = "raw_" + ch.tag
+          strm[ch.tag] = strset.stream_add ( rawname, "native", Params() )
+          
+        # Add observations
         for observation in self.data_selector.get_OBS():  
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
@@ -128,20 +135,19 @@ class ToastConfig(object):
             for pp in observation.PP:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
           
-        # Add streams for real data
-
-        for ch in self.channels:
-          rawname = "raw_" + ch.tag
-          strm = strset.stream_add ( rawname, "native", Params() )
-          
-          # Add TODs for this stream
-          params = {}
-          params[ "flagmask" ] = self.flagmask
-          params[ "obtmask" ] = self.obtmask
-          for od, eff in zip(self.data_selector.ods, eff_files):
-            params[ "hdu" ] = ch.eff_tag
-            params[ "path" ] = eff
-            strm.tod_add ( "%s_%d" % (ch.tag, od), "planck_exchange", Params(params) )
+            for ch in self.channels:
+              for i, file_path in enumerate(observation.EFF):
+                  # Add TODs for this stream
+                  params = {}
+                  params[ "flagmask" ] = self.flagmask
+                  params[ "obtmask" ] = self.obtmask
+                  params[ "hdu" ] = ch.eff_tag
+                  params[ "path" ] = file_path
+                  if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
+                      params['rows'] = observation.break_startrow + 1
+                  if i==0 and not observation.break_stoprow is None:
+                      params['startrow'] = observation.break_stoprow
+                  strm[ch.tag].tod_add ( "%s_%d%s_%d" % (ch.tag, observation.od, observation.tag, i), "planck_exchange", Params(params) )
 
         # Add white-noise 1 PSD per mission
         for ch in self.channels:
@@ -165,5 +171,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([451, 458], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
+    toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
     toast_config.run()

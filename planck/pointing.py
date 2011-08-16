@@ -175,9 +175,10 @@ class DiskPointing(Pointing):
 
     def get_3ang(self, ch):
         l.debug('Reading %s' % self.filename)
-        h = pycfitsio.open(self.filename)[ch.tag]
+        f = pycfitsio.open(self.filename)
+        h = f[ch.tag]
         theta, phi, psi = h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
-        h.close()
+        f.close()
         return theta, phi, psi
 
     def get(self, ch):

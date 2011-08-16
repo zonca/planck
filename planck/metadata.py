@@ -15,7 +15,7 @@ except exceptions.ImportError:
     raise
 
 Period = namedtuple('Period', ['number','start','stop'])
-Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF'])
+Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
 def obt2od(obt, freq=30):
     """Get precise OD from obt stamp2"""
@@ -129,7 +129,7 @@ class DataSelector(object):
                         eff_ods.remove(OD)
                     except:
                         pass
-            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods)))
+            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods), break_startrow=None, break_stoprow=None))
         return OBS
 
     def get_OBS(self):
@@ -139,8 +139,8 @@ class DataSelector(object):
         conn = sqlite3.connect(self.config['breaks'])
         c = conn.cursor()
         #obt are in clocks in the database
-        query = c.execute('select od, startobt, stopobt from eff_breaks where freq=? and startobt > ? and stopobt < ?', (self.f.freq,OBS[0].start*2**16, OBS[-1].stop*2**16))
-        for od, startobt, stopobt in query:
+        query = c.execute('select od, startobt, stopobt, startrow, stoprow from eff_breaks where freq=? and startobt > ? and stopobt < ?', (self.f.freq,OBS[0].start*2**16, OBS[-1].stop*2**16))
+        for od, startobt, stopobt, startrow, stoprow in query:
             #convert in seconds
             startobt /= 2.**16
             stopobt /= 2.**16
@@ -151,7 +151,7 @@ class DataSelector(object):
                 l.error('Cannot identify the observation related to the break in OD %d' % od)
                 sys.exit(1)
             i = OBS.index(OB)
-            splitted_OBS = split_observation(OB, startobt, stopobt)
+            splitted_OBS = split_observation(OB, startobt, stopobt, startrow, stoprow)
             OBS[i] = splitted_OBS[1]
             OBS.insert(i, splitted_OBS[0])
         c.close()
@@ -257,15 +257,15 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         EFF = EFF[0]
     return EFF
 
-def split_observation(OB, startobt, stopobt):
+def split_observation(OB, startobt, stopobt, startrow, stoprow):
     """Splits one observation in 2 observations"""
     PP1 = [p for p in OB.PP if p.start < startobt]
     PP1[-1] = Period(PP1[-1].number, PP1[-1].start, startobt)
-    OB1 = Observation(od=OB.od, tag=OB.tag + 'a', start=OB.start, stop=startobt, PP=PP1, EFF=OB.EFF)
+    OB1 = Observation(od=OB.od, tag=OB.tag + 'a', start=OB.start, stop=startobt, PP=PP1, EFF=OB.EFF, break_startrow=startrow, break_stoprow=None)
 
     PP2 = [p for p in OB.PP if p.stop > stopobt]
     PP2[0] = Period(PP2[0].number, stopobt, PP2[0].stop)
-    OB2 = Observation(od=OB.od, tag=OB.tag + 'b', start=stopobt, stop=OB.stop, PP=PP2, EFF=OB.EFF)
+    OB2 = Observation(od=OB.od, tag=OB.tag + 'b', start=stopobt, stop=OB.stop, PP=PP2, EFF=OB.EFF, break_startrow=None, break_stoprow=stoprow)
 
     return OB1, OB2
 
