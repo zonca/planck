@@ -34,7 +34,7 @@ class Pointing(object):
         self.wobble = wobble
 
         filenames = AHF_btw_OBT(obt)
-        files = [pycfitsio.open(f) for f in filenames]
+        files = [pycfitsio.open(f, False) for f in filenames]
         l.debug('reading files %s' % str(files))
         AHF_data_iter = [f[0] for f in files]
 
@@ -175,11 +175,9 @@ class DiskPointing(Pointing):
 
     def get_3ang(self, ch):
         l.debug('Reading %s' % self.filename)
-        f = pycfitsio.open(self.filename)
-        h = f[ch.tag]
-        theta, phi, psi = h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
-        f.close()
-        return theta, phi, psi
+        with pycfitsio.open(self.filename) as f:
+            h = f[ch.tag]
+            return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
 
     def get(self, ch):
         import healpy
