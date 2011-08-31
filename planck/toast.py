@@ -144,7 +144,7 @@ class ToastConfig(object):
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
-              print("Observation %d%s, %s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
+              print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
               for i, file_path in enumerate(observation.EFF):
                   eff_od = get_eff_od(file_path)
                   # Add TODs for this stream
@@ -154,7 +154,6 @@ class ToastConfig(object):
                   params[ "hdu" ] = ch.eff_tag
                   params[ "path" ] = file_path
                   tag = ''
-                  print broken_od
                   if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
                       params['rows'] = observation.break_startrow + 1
                       tag = 'a'
@@ -165,11 +164,11 @@ class ToastConfig(object):
                       broken_od = None
                   name = "%s_%d%s" % (ch.tag, eff_od, tag)
                   if name not in tod_name_list[ch.tag]:
+                      print('add ' + name)
                       tod_name_list[ch.tag].append(name)
                       tod_par_list[ch.tag].append(Params(params))
                   else:
                       print("skip " + name)
-                  print(tod_name_list[ch.tag])
 
         for ch in self.channels:
                 for name, par in zip(tod_name_list[ch.tag], tod_par_list[ch.tag]):
