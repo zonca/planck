@@ -36,7 +36,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None):
         """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
            channels: one of integer frequency, channel string, list of channel strings
            obtmask and flagmask: default LFI 1,255 HFI 1,1
@@ -53,6 +53,14 @@ class ToastConfig(object):
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
         self.data_selector = DataSelector(channels=self.channels)
+        if remote_exchange_folder:
+            if remote_exchange_folder[-1] != '/':
+                remote_exchange_folder += '/'
+        self.remote_exchange_folder = remote_exchange_folder
+        if remote_ahf_folder:
+            if remote_ahf_folder[-1] != '/':
+                remote_ahf_folder += '/'
+        self.remote_ahf_folder = remote_ahf_folder
         if not exchange_folder is None:
             self.data_selector.config['exchangefolder'] = exchange_folder
         if not ahf_folder is None:
@@ -100,7 +108,10 @@ class ToastConfig(object):
     def add_pointing(self, telescope):
         # Add pointing files
         for i,ahf in enumerate(self.data_selector.get_AHF()):  
-          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": str(ahf[0])}))
+          path = str(ahf[0])
+          if self.remote_ahf_folder:
+            path = path.replace(self.data_selector.config['ahf_folder'], self.remote_ahf_folder)
+          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": path}))
 
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
@@ -137,7 +148,10 @@ class ToastConfig(object):
         for observation in self.data_selector.get_OBS():  
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
-                params[ "times%d" % (i+1) ] = eff
+                if self.remote_exchange_folder:
+                    params[ "times%d" % (i+1) ] = eff.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
+                else:
+                    params[ "times%d" % (i+1) ] = eff
             obs = strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
             for pp in observation.PP:
@@ -152,7 +166,10 @@ class ToastConfig(object):
                   params[ "flagmask" ] = self.flagmask
                   params[ "obtmask" ] = self.obtmask
                   params[ "hdu" ] = ch.eff_tag
-                  params[ "path" ] = file_path
+                  if self.remote_exchange_folder:
+                      params[ "path" ] = file_path.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
+                  else:
+                      params[ "path" ] = file_path
                   tag = ''
                   if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
                       params['rows'] = observation.break_startrow + 1
@@ -196,5 +213,5 @@ class ToastConfig(object):
           
 if __name__ == '__main__':
 
-    toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/', output_xml='30_break.xml')
+    toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_hrflag_conv/', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/')
     toast_config.run()
