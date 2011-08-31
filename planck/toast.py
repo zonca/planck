@@ -130,7 +130,7 @@ class ToastConfig(object):
           rawname = "raw_" + ch.tag
           strm[ch.tag] = strset.stream_add ( rawname, "native", Params() )
           
-        broken_od = None
+        broken_od = defaultdict(None)
         # Add observations
         tod_name_list = defaultdict(list) 
         tod_par_list = defaultdict(list) 
@@ -157,11 +157,11 @@ class ToastConfig(object):
                   if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
                       params['rows'] = observation.break_startrow + 1
                       tag = 'a'
-                      broken_od = eff_od
-                  if not observation.break_stoprow is None and broken_od==eff_od:
+                      broken_od[ch.tag] = eff_od
+                  if not observation.break_stoprow is None and broken_od[ch.tag]==eff_od:
                       params['startrow'] = observation.break_stoprow
                       tag = 'b'
-                      broken_od = None
+                      broken_od[ch.tag] = None
                   name = "%s_%d%s" % (ch.tag, eff_od, tag)
                   if name not in tod_name_list[ch.tag]:
                       print('add ' + name)
