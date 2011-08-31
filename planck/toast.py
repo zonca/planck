@@ -1,13 +1,18 @@
 import sys
+import os
 
 import private
 from Planck import parse_channels
 from metadata import DataSelector
+from collections import defaultdict
 
 import logging as l
 import pytoast 
 
 l.basicConfig(level=l.INFO)
+
+def get_eff_od(file_path):
+    return int(os.path.basename(file_path).split('-')[1])
 
 def strconv(f):
     """Formatting for the xml"""
@@ -125,7 +130,10 @@ class ToastConfig(object):
           rawname = "raw_" + ch.tag
           strm[ch.tag] = strset.stream_add ( rawname, "native", Params() )
           
+        broken_od = None
         # Add observations
+        tod_name_list = defaultdict(list) 
+        tod_par_list = defaultdict(list) 
         for observation in self.data_selector.get_OBS():  
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
@@ -134,20 +142,38 @@ class ToastConfig(object):
 
             for pp in observation.PP:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
-          
+
             for ch in self.channels:
+              print("Observation %d%s, %s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
               for i, file_path in enumerate(observation.EFF):
+                  eff_od = get_eff_od(file_path)
                   # Add TODs for this stream
                   params = {}
                   params[ "flagmask" ] = self.flagmask
                   params[ "obtmask" ] = self.obtmask
                   params[ "hdu" ] = ch.eff_tag
                   params[ "path" ] = file_path
+                  tag = ''
+                  print broken_od
                   if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
                       params['rows'] = observation.break_startrow + 1
-                  if i==0 and not observation.break_stoprow is None:
+                      tag = 'a'
+                      broken_od = eff_od
+                  if not observation.break_stoprow is None and broken_od==eff_od:
                       params['startrow'] = observation.break_stoprow
-                  strm[ch.tag].tod_add ( "%s_%d%s_%d" % (ch.tag, observation.od, observation.tag, i), "planck_exchange", Params(params) )
+                      tag = 'b'
+                      broken_od = None
+                  name = "%s_%d%s" % (ch.tag, eff_od, tag)
+                  if name not in tod_name_list[ch.tag]:
+                      tod_name_list[ch.tag].append(name)
+                      tod_par_list[ch.tag].append(Params(params))
+                  else:
+                      print("skip " + name)
+                  print(tod_name_list[ch.tag])
+
+        for ch in self.channels:
+                for name, par in zip(tod_name_list[ch.tag], tod_par_list[ch.tag]):
+                  strm[ch.tag].tod_add ( name, "planck_exchange", par ) 
 
         # Add white-noise 1 PSD per mission
         for ch in self.channels:
