@@ -36,7 +36,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype='R'):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -57,7 +57,7 @@ class ToastConfig(object):
         self.output_xml = output_xml
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
-        self.data_selector = DataSelector(channels=self.channels)
+        self.data_selector = DataSelector(channels=self.channels, efftype=efftype)
         if remote_exchange_folder:
             if remote_exchange_folder[-1] != '/':
                 remote_exchange_folder += '/'
