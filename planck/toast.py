@@ -155,6 +155,17 @@ class ToastConfig(object):
         if not self.calibration_file is None:
             for ch in self.channels:
                 strm["cal_" + ch.tag] = strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
+
+        #stack
+        for ch in self.channels:
+            stack_elements = ["raw_" + ch.tag]
+            if (not self.calibration_file is None):
+                stack_elements.append("cal_" + ch.tag + ",MUL")
+                if self.dipole_removal:
+                    stack_elements.append("dipole_" + ch.tag + ",SUB")
+            expr = ','.join(['PUSH:' + el for el in stack_elements])
+            calname = "cal_" + ch.tag
+            strm["stack_" + ch.tag] = strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
           
         broken_od = defaultdict(None)
         # Add observations
