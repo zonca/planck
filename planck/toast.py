@@ -37,11 +37,15 @@ class ToastConfig(object):
     """Toast configuration class"""
 
     def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True):
-        """odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
-           channels: one of integer frequency, channel string, list of channel strings
-           obtmask and flagmask: default LFI 1,255 HFI 1,1
-           remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
-           """
+        """TOAST configuration:
+
+            odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
+            channels: one of integer frequency, channel string, list of channel strings
+            obtmask and flagmask: default LFI 1,255 HFI 1,1
+            remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
+            calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
+            dipole_removal: dipole removal is performed ONLY if calibration is specified
+        """
         l.root.level = log_level
         self.odrange = odrange
         self.nside = nside
@@ -73,6 +77,9 @@ class ToastConfig(object):
 
         self.obtmask = obtmask or DEFAULT_OBTMASK[self.f.inst.name]
         self.flagmask = flagmask or DEFAULT_FLAGMASK[self.f.inst.name]
+
+        self.calibration_file = calibration_file
+        self.dipole_removal = dipole_removal
 
     def run(self):
         """Call the python-toast bindings to create the xml configuration file"""
