@@ -1,5 +1,6 @@
 import sys
 import os
+import exceptions
 
 import private
 from Planck import parse_channels
@@ -216,6 +217,18 @@ class ToastConfig(object):
                   else:
                       print("skip " + name)
 
+        # remove duplicate files on breaks
+        for ch in self.channels:
+            for name in [n for n in tod_name_list[ch.tag] if n.endswith('a')]:
+                try:
+                    delindex = tod_name_list[ch.tag].index(name.rstrip('a'))
+                    print('Removing %s because of breaks' % tod_name_list[ch.tag][delindex])
+                    del tod_name_list[ch.tag][delindex]
+                    del tod_par_list[ch.tag][delindex]
+                except exceptions.ValueError:
+                    pass
+    
+        # add EFF to streamset
         for ch in self.channels:
                 for name, par in zip(tod_name_list[ch.tag], tod_par_list[ch.tag]):
                   strm[ch.tag].tod_add ( name, "planck_exchange", par ) 
