@@ -1,3 +1,3 @@
-#!/usr/bin/bash
+#!/bin/bash
 chgrp -R cmb *
-chmod -R g+wrx *
+chmod -R g+wrX,o+rX *
