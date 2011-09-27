@@ -102,11 +102,17 @@ class ToastConfig(object):
                 "units"  : "micro-K"
             }))
 
+        if self.f.inst.name == 'LFI':
+            wobble_offset = 0;
+        else:
+            wobble_offset = self.wobble["psi2_offset"]
+
         tele = self.conf.telescope_add ( "planck", "planck", 
             Params({  
                 "wobblepsi2dir":self.wobble["psi2_dir"],
                 "wobblepsi2_ref":self.wobble["psi2_ref"],
                 "wobblepsi1_ref":self.wobble["psi1_ref"],
+                "wobblepsi2_offset":wobble_offset
             }))
 
         fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", Params({"path":self.fpdb}) )
