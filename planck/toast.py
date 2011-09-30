@@ -1,6 +1,8 @@
 import sys
+import copy
 import os
 import exceptions
+import glob
 
 import private
 from Planck import parse_channels
@@ -37,7 +39,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -46,6 +48,7 @@ class ToastConfig(object):
             remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
+            [solar_system, orbital]_dipole_folder: path to dipole in exchange format
         """
         l.root.level = log_level
         self.odrange = odrange
@@ -58,9 +61,10 @@ class ToastConfig(object):
         self.output_xml = output_xml
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
-        efftype ='R'
-        if self.f.inst.name == 'LFI' and (not calibration_file is None):
-            efftype ='C'
+        if efftype is None:
+            efftype ='R'
+            if self.f.inst.name == 'LFI' and (not calibration_file is None):
+                efftype ='C'
         self.data_selector = DataSelector(channels=self.channels, efftype=efftype)
         if remote_exchange_folder:
             if remote_exchange_folder[-1] != '/':
@@ -85,7 +89,7 @@ class ToastConfig(object):
         self.calibration_file = calibration_file
         self.dipole_removal = dipole_removal
 
-    def run(self):
+    def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
         self.conf = pytoast.Run()
           
@@ -119,7 +123,13 @@ class ToastConfig(object):
 
         self.add_pointing(tele)
         self.add_observations(tele)
+        self.add_tods()
+        self.add_noise()
         self.add_channels(tele)
+        if write:
+            self.write()
+
+    def write(self):
         # write out XML
         self.conf.write ( self.output_xml )
 
@@ -134,7 +144,7 @@ class ToastConfig(object):
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
         # Add streamset
-        strset = telescope.streamset_add ( self.f.inst.name, "native", Params() )
+        self.strset = telescope.streamset_add ( self.f.inst.name, "native", Params() )
           
         # Add observations
 
@@ -157,14 +167,14 @@ class ToastConfig(object):
 
         for ch in self.channels:
           rawname = "raw_" + ch.tag
-          strm[ch.tag] = strset.stream_add ( rawname, "native", Params() )
+          strm[ch.tag] = self.strset.stream_add ( rawname, "native", Params() )
         if (not self.calibration_file is None) and self.dipole_removal:
             for ch in self.channels:
-                strm["dipole_" + ch.tag] = strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
+                strm["dipole_" + ch.tag] = self.strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
 
         if not self.calibration_file is None:
             for ch in self.channels:
-                strm["cal_" + ch.tag] = strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
+                strm["cal_" + ch.tag] = self.strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
 
             #stack
             for ch in self.channels:
@@ -175,12 +185,12 @@ class ToastConfig(object):
                         stack_elements.append("dipole_" + ch.tag + ",SUB")
                 expr = ','.join(['PUSH:' + el for el in stack_elements])
                 calname = "cal_" + ch.tag
-                strm["stack_" + ch.tag] = strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
-          
+                strm["stack_" + ch.tag] = self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
+
         broken_od = defaultdict(None)
         # Add observations
-        tod_name_list = defaultdict(list) 
-        tod_par_list = defaultdict(list) 
+        self.tod_name_list = defaultdict(list) 
+        self.tod_par_list = defaultdict(list) 
         for observation in self.data_selector.get_OBS():  
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
@@ -188,7 +198,7 @@ class ToastConfig(object):
                     params[ "times%d" % (i+1) ] = eff.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
                 else:
                     params[ "times%d" % (i+1) ] = eff
-            obs = strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
+            obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
             for pp in observation.PP:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
@@ -216,36 +226,39 @@ class ToastConfig(object):
                       tag = 'b'
                       broken_od[ch.tag] = None
                   name = "%s_%d%s" % (ch.tag, eff_od, tag)
-                  if name not in tod_name_list[ch.tag]:
+                  if name not in self.tod_name_list[ch.tag]:
                       print('add ' + name)
-                      tod_name_list[ch.tag].append(name)
-                      tod_par_list[ch.tag].append(Params(params))
+                      self.tod_name_list[ch.tag].append(name)
+                      self.tod_par_list[ch.tag].append(params)
                   else:
                       print("skip " + name)
 
+    def add_tods(self):
+        """Add TOD files already included in tod_name_list and tod_par_list to the streamset"""
         # remove duplicate files on breaks
         for ch in self.channels:
-            for name in [n for n in tod_name_list[ch.tag] if n.endswith('a')]:
+            for name in [n for n in self.tod_name_list[ch.tag] if n.endswith('a')]:
                 try:
-                    delindex = tod_name_list[ch.tag].index(name.rstrip('a'))
-                    print('Removing %s because of breaks' % tod_name_list[ch.tag][delindex])
-                    del tod_name_list[ch.tag][delindex]
-                    del tod_par_list[ch.tag][delindex]
+                    delindex = self.tod_name_list[ch.tag].index(name.rstrip('a'))
+                    print('Removing %s because of breaks' % self.tod_name_list[ch.tag][delindex])
+                    del self.tod_name_list[ch.tag][delindex]
+                    del self.tod_par_list[ch.tag][delindex]
                 except exceptions.ValueError:
                     pass
     
-        # add EFF to streamset
-        for ch in self.channels:
-                for name, par in zip(tod_name_list[ch.tag], tod_par_list[ch.tag]):
-                  strm[ch.tag].tod_add ( name, "planck_exchange", par ) 
+        # add EFF to stream
+        for ch, stream in zip(self.channels, self.strset.streams()):
+             for name, par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
+                  stream.tod_add ( name, "planck_exchange", Params(par) ) 
 
+    def add_noise(self):
         # Add white-noise 1 PSD per mission
         for ch in self.channels:
             noise_name = "noise_" + ch.tag
-            noise_stream = strset.noise_add ( noise_name, "native", Params() )
+            noise_stream = self.strset.noise_add ( noise_name, "native", Params() )
             noise_stream.psd_add ( "white", "native", Params({
-                "start" : strset.observations()[0].start(),
-                "stop" : strset.observations()[-1].stop(),
+                "start" : self.strset.observations()[0].start(),
+                "stop" : self.strset.observations()[-1].stop(),
                 "rate": ch.sampling_freq,
                 "rms": ch.white_noise 
             }))
@@ -261,9 +274,26 @@ class ToastConfig(object):
                 params[ "stream" ] = "%s/stack_%s" % (self.f.inst.name, ch.tag)
             params[ "noise" ] = "%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( ch.tag, "native", params )
+
+class ToastConfigCal(ToastConfig):
+
+    def add_exchange_format(self, name, folder):
+        """Exchange format files should have exactly same file boundaries as raw tod"""
+        for ch in self.channels:
+            stream = self.strset.stream_add ( '_'.join([name, ch.tag]), "native", Params() )
+            for tod_name, tod_par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
+                od = int(tod_name.split('_')[1].strip('ab'))
+                params = copy.copy(tod_par)
+                params['path'] = glob.glob(os.path.join(folder, "%04d" % od, "?%03d*" % ch.f.freq))[0]
+                stream.tod_add(name, "planck_exchange", Params(params))
           
 if __name__ == '__main__':
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
     toast_config = ToastConfig([91, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
     toast_config.run()
+    toast_config = ToastConfigCal([91, 640], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_cal_91-640.xml', efftype='C')
+    toast_config.run(False)
+    toast_config.add_exchange_format('solar_system_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_solar_system/')
+    toast_config.add_exchange_format('orbital_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_orbital/')
+    toast_config.write()
