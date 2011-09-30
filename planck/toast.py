@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 import copy
 import os
 import exceptions
@@ -39,7 +40,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -48,7 +49,7 @@ class ToastConfig(object):
             remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
-            [solar_system, orbital]_dipole_folder: path to dipole in exchange format
+            flag_HFI_bad_rings: if None, flagged just for HFI
         """
         l.root.level = log_level
         self.odrange = odrange
@@ -88,6 +89,16 @@ class ToastConfig(object):
 
         self.calibration_file = calibration_file
         self.dipole_removal = dipole_removal
+
+        if flag_HFI_bad_rings is None:
+            if self.f.inst.name == 'HFI':
+                flag_HFI_bad_rings = True
+            else:
+                flag_HFI_bad_rings = False
+        if flag_HFI_bad_rings:
+            self.bad_rings = list(np.loadtxt(private.HFI_badrings).astype(np.int))
+        else:
+            self.bad_rings = None
 
     def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
@@ -141,6 +152,14 @@ class ToastConfig(object):
             path = path.replace(self.data_selector.config['ahf_folder'], self.remote_ahf_folder)
           telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": path}))
 
+    @property
+    def observations(self):
+        try:
+            return self._observations
+        except:
+            self._observations = self.data_selector.get_OBS()
+            return self.observations
+
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
         # Add streamset
@@ -191,7 +210,7 @@ class ToastConfig(object):
         # Add observations
         self.tod_name_list = defaultdict(list) 
         self.tod_par_list = defaultdict(list) 
-        for observation in self.data_selector.get_OBS():  
+        for observation in self.observations:  
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
                 if self.remote_exchange_folder:
@@ -200,7 +219,12 @@ class ToastConfig(object):
                     params[ "times%d" % (i+1) ] = eff
             obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
-            for pp in observation.PP:
+            if not self.bad_rings is None:
+                pointing_periods = [pp for pp in observation.PP if not pp.number in self.bad_rings]
+                print("Flagging %d pointing periods" % (len(observation.PP) - len(pointing_periods)))
+            else:
+                pointing_periods = observation.PP
+            for pp in pointing_periods:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
@@ -290,10 +314,10 @@ class ToastConfigCal(ToastConfig):
 if __name__ == '__main__':
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
-    toast_config = ToastConfig([91, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
+    toast_config = ToastConfig([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', flag_HFI_bad_rings=True)
     toast_config.run()
-    toast_config = ToastConfigCal([91, 640], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_cal_91-640.xml', efftype='C')
-    toast_config.run(False)
-    toast_config.add_exchange_format('solar_system_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_solar_system/')
-    toast_config.add_exchange_format('orbital_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_orbital/')
-    toast_config.write()
+    #toast_config = ToastConfigCal([91, 640], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_cal_91-640.xml', efftype='C')
+    #toast_config.run(False)
+    #toast_config.add_exchange_format('solar_system_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_solar_system/')
+    #toast_config.add_exchange_format('orbital_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_orbital/')
+    #toast_config.write()
