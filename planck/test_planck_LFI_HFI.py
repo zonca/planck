@@ -9,7 +9,7 @@ class TestPlanckLFIHFI(unittest.TestCase):
         self.hfi = self.Planck.inst['HFI']
 
     def test_Planck(self):
-        self.assertEqual(len(self.Planck.ch), 74)
+        self.assertEqual(len(self.Planck.ch), 71)
         
     def test_LFI(self):
         self.assertEqual(self.lfi.name , 'LFI')
@@ -25,6 +25,6 @@ class TestPlanckLFIHFI(unittest.TestCase):
         self.assertEqual(self.lfi.ch[0].tag, 'LFI18M')
 
     def test_HFI(self):
-        self.assertEqual(len(self.hfi.ch), 52)
+        self.assertEqual(len(self.hfi.ch), 49)
         self.assertEqual(self.hfi['217-8a'].tag, '217-8a')
         self.assertEqual(self.hfi['545-4'].tag, '545-4')

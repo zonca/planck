@@ -59,7 +59,7 @@ def remove_dipole(m, gal_cut = 30):
     os.remove('no_dipole_tempmap.fits')
     return out
 
-def anafast(m, gal_cut = 30, lmax = None):
+def anafast(m, m2=None, gal_cut = 30, lmax = None):
     '''Utility to run anafast by Healpix'''
     healpy.write_map('tempmap.fits', m, nest = False)
     config_filename = 'anafastconfig.txt'
@@ -71,6 +71,9 @@ def anafast(m, gal_cut = 30, lmax = None):
     if lmax:
         config['nlmax'] =  lmax
     config['infile'] = 'tempmap.fits' 
+    if not m2 is None:
+        healpy.write_map('tempmap2.fits', m2, nest = False)
+        config['infile2'] = 'tempmap2.fits' 
     config['outfile'] = 'tempcl.fits'
     config['won'] = 0
     config.write()
