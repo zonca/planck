@@ -108,7 +108,7 @@ class ToastConfig(object):
             else:
                 flag_HFI_bad_rings = False
         if flag_HFI_bad_rings:
-            self.bad_rings = list(np.loadtxt(private.HFI_badrings).astype(np.int))
+            self.bad_rings = private.HFI_badrings
         else:
             self.bad_rings = None
 
@@ -148,6 +148,8 @@ class ToastConfig(object):
         self.add_observations(tele)
         self.add_tods()
         self.add_noise()
+        if not self.bad_rings is None:
+            self.add_bad_rings()
         self.add_channels(tele)
         if write:
             self.write()
@@ -215,6 +217,8 @@ class ToastConfig(object):
                     if self.dipole_removal:
                         stack_elements.append("dipole_" + ch.tag + ",SUB")
                 expr = ','.join(['PUSH:' + el for el in stack_elements])
+                if not self.bad_rings is None:
+                    expr += ',PUSH:bad_%s,ADD' % ch.tag
                 calname = "cal_" + ch.tag
                 strm["stack_" + ch.tag] = self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
 
@@ -231,11 +235,7 @@ class ToastConfig(object):
                     params[ "times%d" % (i+1) ] = eff
             obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
-            if not self.bad_rings is None:
-                pointing_periods = [pp for pp in observation.PP if not pp.number in self.bad_rings]
-                print("Flagging %d pointing periods" % (len(observation.PP) - len(pointing_periods)))
-            else:
-                pointing_periods = observation.PP
+            pointing_periods = observation.PP
             for pp in pointing_periods:
                 obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
 
@@ -300,6 +300,10 @@ class ToastConfig(object):
                 "rate": ch.sampling_freq,
                 "rms": ch.white_noise 
             }))
+
+    def add_bad_rings(self):
+        for ch in self.channels:
+           self.strset.stream_add ( '_'.join(['bad', ch.tag]), "planck_bad", Params({'detector':ch.tag, 'path':self.bad_rings}) )
             
     def add_channels(self, telescope):
         params = pytoast.ParMap()
