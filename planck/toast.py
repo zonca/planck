@@ -340,7 +340,7 @@ class ToastConfigCal(ToastConfig):
 if __name__ == '__main__':
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
-    toast_config = ToastConfig([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', flag_HFI_bad_rings=True)
+    toast_config = ToastConfig([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', flag_HFI_bad_rings=False)
     toast_config.run()
     #toast_config = ToastConfigCal([91, 95], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_cal_91-95.xml', efftype='C')
     #toast_config.run(False)
