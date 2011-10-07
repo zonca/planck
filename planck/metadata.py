@@ -36,7 +36,8 @@ class DataSelector(object):
     
     some configuration options can be modified after creating the object by accessing the .config dictionary"""
 
-    def __init__(self, channels=None, efftype='R'):
+    def __init__(self, channels=None, efftype='R', include_preFLS=False):
+        self.include_preFLS = include_preFLS
         self.channels = parse_channels(channels)
 
         if self.channels is None:
@@ -161,8 +162,10 @@ class DataSelector(object):
         """Gets all the pointing periods in one Operational Day, returns a list of Period named tuples"""
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
-        #query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? and start_time > 106743579730069 order by start_time ASC', (str(od),))
-        query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==?  order by start_time ASC', (str(od),))
+        if self.include_preFLS:
+            query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==?  order by start_time ASC', (str(od),))
+        else:
+            query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? and start_time > 106743579730069 order by start_time ASC', (str(od),))
         PP = [Period(int(q[0]),q[1]/2.**16,q[2]/2.**16) for q in query]
         c.close()
         return PP

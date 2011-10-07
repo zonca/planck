@@ -40,7 +40,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None, include_preFLS=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -50,6 +50,7 @@ class ToastConfig(object):
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
             flag_HFI_bad_rings: if None, flagged just for HFI
+            include_preFLS : if None, True for LFI
 
             additional configuration options are available modifying:
             .config
@@ -71,14 +72,18 @@ class ToastConfig(object):
         self.config = {}
         if self.f.inst.name == 'LFI':
             self.config['pairflags'] = True
+            if include_preFLS is None:
+                include_preFLS = True
         else:
             self.config['pairflags'] = False
+            if include_preFLS is None:
+                include_preFLS = False
 
         if efftype is None:
             efftype ='R'
             if self.f.inst.name == 'LFI' and (not calibration_file is None):
                 efftype ='C'
-        self.data_selector = DataSelector(channels=self.channels, efftype=efftype)
+        self.data_selector = DataSelector(channels=self.channels, efftype=efftype, include_preFLS=include_preFLS)
         if remote_exchange_folder:
             if remote_exchange_folder[-1] != '/':
                 remote_exchange_folder += '/'
