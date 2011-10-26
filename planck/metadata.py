@@ -15,7 +15,7 @@ except exceptions.ImportError:
     raise
 
 Period = namedtuple('Period', ['number','start','stop'])
-Observation = namedtuple('Observation', ['od','start','stop','PP','EFF'])
+Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
 def obt2od(obt, freq=30):
     """Get precise OD from obt stamp2"""
@@ -32,9 +32,12 @@ class DataSelector(object):
     channels can be integer frequency, list of channel names (same frequency) or a single channel name string
     efftype is R for reduced, C for converted [uncal with dip]
     ods are the AHF ODs
-    eff_ods are the EFF ODs"""
+    eff_ods are the EFF ODs
+    
+    some configuration options can be modified after creating the object by accessing the .config dictionary"""
 
-    def __init__(self, channels=None, efftype='R'):
+    def __init__(self, channels=None, efftype='R', include_preFLS=False):
+        self.include_preFLS = include_preFLS
         self.channels = parse_channels(channels)
 
         if self.channels is None:
@@ -43,12 +46,14 @@ class DataSelector(object):
             self.f = self.channels[0].f
         self.config = {}
         self.config['database'] = private.database
+        self.config['breaks'] = private.TOAST['breaks']
         if self.channels is None:
             self.config['exchangefolder'] = None
         else:
             self.config['exchangefolder'] = private.exchangefolder[self.f.inst.name]
 
         self.config['ahf_folder'] = private.AHF
+        self.config['exclude_454_455'] = True
         self.efftype = efftype
 
     @property
@@ -74,6 +79,12 @@ class DataSelector(object):
         """ods is a list of start and stop OD (INCLUDED)"""
         self.od_range = od_range
         self._ods = range(od_range[0], od_range[1]+1)
+        if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+            for OD in [454, 455]:
+                try:
+                    self._ods.remove(OD)
+                except:
+                    pass
     
 
     def by_obt(self, obt_ranges):
@@ -108,16 +119,53 @@ class DataSelector(object):
     def get_EFF(self):
         return self.latest_exchange(self.eff_ods)
 
-    def get_OBS(self):
+    def get_OD_OBS(self):
+        """Gets one observation for each Operational Day"""
         OBS = []
         for od, obt_range in zip(self.ods, self.obt_ranges):
-            OBS.append(Observation(od=od, start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods_from_obt_range(self.f.freq, obt_range))))
+            eff_ods = eff_ods_from_obt_range(self.f.freq, obt_range)
+            if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+                for OD in [454, 455]:
+                    try:
+                        eff_ods.remove(OD)
+                    except:
+                        pass
+            OBS.append(Observation(od=od, tag='', start=obt_range[0], stop=obt_range[1], PP=self.get_PP(od), EFF=self.latest_exchange(eff_ods), break_startrow=None, break_stoprow=None))
+        return OBS
+
+    def get_OBS(self):
+        """Checks the breaks table and splits the observations accordingly"""
+        OBS = self.get_OD_OBS()
+
+        conn = sqlite3.connect(self.config['breaks'])
+        c = conn.cursor()
+        #obt are in clocks in the database
+        query = c.execute('select od, startobt, stopobt, startrow, stoprow from eff_breaks where freq=? and startobt > ? and stopobt < ?', (self.f.freq,OBS[0].start*2**16, OBS[-1].stop*2**16))
+        for od, startobt, stopobt, startrow, stoprow in query:
+            #convert in seconds
+            startobt /= 2.**16
+            stopobt /= 2.**16
+            l.warning('Break found in OD %d' % od)
+            try:
+                OB = [o for o in OBS if o.start < stopobt and o.stop > startobt][0]
+            except exceptions.IndexError:
+                l.error('Cannot identify the observation related to the break in OD %d' % od)
+                sys.exit(1)
+            i = OBS.index(OB)
+            splitted_OBS = split_observation(OB, startobt, stopobt, startrow, stoprow)
+            OBS[i] = splitted_OBS[1]
+            OBS.insert(i, splitted_OBS[0])
+        c.close()
         return OBS
 
     def get_PP(self, od):
+        """Gets all the pointing periods in one Operational Day, returns a list of Period named tuples"""
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
-        query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? order by start_time ASC', (str(od),))
+        if self.include_preFLS:
+            query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==?  order by start_time ASC', (str(od),))
+        else:
+            query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? and start_time > 106743579730069 order by start_time ASC', (str(od),))
         PP = [Period(int(q[0]),q[1]/2.**16,q[2]/2.**16) for q in query]
         c.close()
         return PP
@@ -155,7 +203,14 @@ class DataSelector(object):
     @property
     def eff_ods(self):
         """List of ODs within the obt range provided"""
-        return eff_ods_from_obt_range(self.f.freq, [self.obt_ranges[0][0], self.obt_ranges[-1][-1]])
+        eff_ods = eff_ods_from_obt_range(self.f.freq, [self.obt_ranges[0][0], self.obt_ranges[-1][-1]])
+        if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
+            for OD in [454, 455]:
+                try:
+                    eff_ods.remove(OD)
+                except:
+                    pass
+        return eff_ods
 
     def latest_exchange(self, od):
         return latest_exchange(self.f.freq, od, self.config['exchangefolder'], self.efftype)
@@ -171,7 +226,7 @@ def eff_ods_from_obt_range(freq, obt_range, database=None):
 def get_obt_range_from_od(od, database=None):
     conn = sqlite3.connect(database or private.database)
     c = conn.cursor()
-    query = c.execute('select start_time,end_time from list_ahf_infos where od==? order by pointID_unique ASC', (str(od),))
+    query = c.execute('select start_time,end_time from list_ahf_infos where od==? order by start_time ASC', (str(od),))
     all = query.fetchall()
     obt_range = (all[0][0]/2.**16, all[-1][-1]/2.**16)
     c.close()
@@ -192,13 +247,13 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         type = ''
     EFF = []
     for od in ods:
-        pattern = '/*%03d-%04d-%s*.fits' % (freq, od, type)
+        pattern = '*%03d-%04d-%s*.fits' % (freq, od, type)
         if od:
-            pattern = ('/%04d' % od) + pattern
-        l.debug('Exchange format: %s' % (exchangefolder + pattern))
-        allversions = glob.glob(exchangefolder + pattern)
+            pattern = os.path.join('%04d' % od, pattern)
+        l.debug('Exchange format: %s' % (os.path.join(exchangefolder, pattern)))
+        allversions = glob.glob(os.path.join(exchangefolder, pattern))
         if not allversions:
-            error_message = 'Cannot find file from pattern: %s' % (exchangefolder +         pattern)
+            error_message = 'Cannot find file from pattern: %s' % os.path.join(exchangefolder, pattern)
             l.error(error_message)
             raise exceptions.IOError(error_message)
         EFF.append(max(allversions, key = lambda x: int(x[-13:-5])))
@@ -206,10 +261,23 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         EFF = EFF[0]
     return EFF
 
+def split_observation(OB, startobt, stopobt, startrow, stoprow):
+    """Splits one observation in 2 observations"""
+    PP1 = [p for p in OB.PP if p.start < startobt]
+    PP1[-1] = Period(PP1[-1].number, PP1[-1].start, startobt)
+    OB1 = Observation(od=OB.od, tag=OB.tag + 'a', start=OB.start, stop=startobt, PP=PP1, EFF=OB.EFF, break_startrow=startrow, break_stoprow=None)
+
+    PP2 = [p for p in OB.PP if p.stop > stopobt]
+    PP2[0] = Period(PP2[0].number, stopobt, PP2[0].stop)
+    OB2 = Observation(od=OB.od, tag=OB.tag + 'b', start=stopobt, stop=OB.stop, PP=PP2, EFF=OB.EFF, break_startrow=None, break_stoprow=stoprow)
+
+    return OB1, OB2
+
+
 if __name__ == '__main__':
-    ds = DataSelector(channels=100)
-    ds.config['exchangefolder'] = 'toast_planck_data/hfi_m3_v41'
-    ds.by_od_range([97, 103])
+    ds = DataSelector(channels=30)
+    ds.config['exchangefolder'] = '/global/scratch/sd/planck/user/zonca/data/LFI_DX7S_conv/'
+    ds.by_od_range([452, 457])
     print(ds.get_EFF())
     print(ds.get_AHF())
     print(ds.get_OBS())
