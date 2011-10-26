@@ -1,0 +1,10 @@
+toast:
+
+decouple Observations and EFF.
+
+create DataStream(TimeStream) and SimNoiseStream(TimeStream)
+that get the observations list and creates the streams.
+
+at write time:
+stack->push:noise_stream, push:real_stream,FLG [gets only the flags]
+
