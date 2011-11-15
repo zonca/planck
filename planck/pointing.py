@@ -34,7 +34,7 @@ class Pointing(object):
         self.wobble = wobble
 
         filenames = AHF_btw_OBT(obt)
-        files = [pycfitsio.open(f, False) for f in filenames]
+        files = [pycfitsio.open(f) for f in filenames]
         l.debug('reading files %s' % str(files))
         AHF_data_iter = [f[0] for f in files]
 
