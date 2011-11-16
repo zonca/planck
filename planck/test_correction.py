@@ -38,12 +38,23 @@ class TestCorrection(unittest.TestCase):
         self.assertAlmostEqual(get_wobble_psi2(1.067546522419189e+14/2**16), np.radians(-28.236426/60))
 
     def test_null_correction(self):
-        r = wobble([0,0], wobble_psi2_model=lambda x:np.array([private.WOBBLE['psi2_ref']]*len(x))) 
+        r = wobble([0,0], wobble_psi2_model=lambda x:np.array([private.WOBBLE_DX7['psi2_ref']]*len(x))) 
         np.testing.assert_array_almost_equal(r, np.array([[-0., -0., -0., 1.], [-0., -0., -0., 1.]])) 
 
     def test_wobble_correction(self):
         r = wobble(np.array([1635615346.1697083]))
         np.testing.assert_array_almost_equal(r, np.array([[  2.08679712e-08,  -1.56235725e-05,  -0.00000000e+00, 1.00000000e+00]]))
+
+    def test_ahf_wobble_correction_angles(self):
+        obt = [106753612931221/2.**16 + 1] #PID 62, first of OD 93
+        psi1, psi2 = get_ahf_wobble(obt)
+        np.testing.assert_array_almost_equal(psi1, np.radians(np.array([4.4775999999999998])/60.))
+        np.testing.assert_array_almost_equal(psi2, np.radians(np.array([-28.2402000])/60.))
+
+    def test_ahf_wobble_correction_angles(self):
+        obt = [106753612931221/2.**16 + 1] #PID 62, first of OD 93
+        wobble_rot = ahf_wobble(obt)
+
 
 if __name__ == '__main__':
     unittest.main()

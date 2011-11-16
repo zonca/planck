@@ -1,4 +1,5 @@
 import logging as l
+import pycfitsio
 import numpy as np
 
 import scipy.constants as physcon
@@ -10,6 +11,9 @@ import private
 
 from tabulate_corrections_calc import TabulatedAttitudeCorrections
 #from IPython.Debugger import Tracer; debug_here = Tracer()
+
+def arcmin2rad(ang):
+    return np.radians(ang/60.)
 
 def deaberration(vec, obt, coord):
     satvel = SatelliteVelocity(coord).orbital_v(obt)
@@ -40,8 +44,8 @@ def get_wobble_psi2(obt, filename=None):
 def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris, offset=0):
     """Gets array of OBT and returns an array of quaternions"""
 
-    R_psi1 = qarray.inv(qarray.rotation([0,0,1], private.WOBBLE['psi1_ref']))
-    R_psi2 = qarray.inv(qarray.rotation([0,1,0], private.WOBBLE['psi2_ref']))
+    R_psi1 = qarray.inv(qarray.rotation([0,0,1], private.WOBBLE_DX7['psi1_ref']))
+    R_psi2 = qarray.inv(qarray.rotation([0,1,0], private.WOBBLE_DX7['psi2_ref']))
 
     psi2 = wobble_psi2_model(obt) - offset
     R_psi2T = qarray.rotation([0,1,0], psi2)
@@ -54,3 +58,34 @@ def wobble(obt, wobble_psi2_model=get_wobble_psi2_maris, offset=0):
 
     #debug_here()
     return wobble_rotation
+
+def ahf_wobble(obt):
+    """Pointing period by pointing period correction for psi1 and psi2 from
+    the AHF observation files"""
+
+    R_psi1 = qarray.inv(qarray.rotation([0,0,1], private.WOBBLE['psi1_ref']))
+    R_psi2 = qarray.inv(qarray.rotation([0,1,0], private.WOBBLE['psi2_ref']))
+
+    psi1, psi2 = get_ahf_wobble(obt)
+
+    R_psi2T = qarray.rotation([0,1,0], psi2)
+    R_psi1T = qarray.rotation([0,0,1], psi1)
+
+    wobble_rotation = qarray.mult(R_psi1T,
+                            qarray.mult(R_psi2T , 
+                                qarray.mult(R_psi2 , R_psi1)
+                            )
+                        )
+
+    return wobble_rotation
+
+
+def get_ahf_wobble(obtx):
+    """Read psi1 and psi2 file previously extracted from observation AHF files"""
+    filename = '/project/projectdirs/planck/user/seiffert/cal/WDX8/C070-0000-WDX8-20111116.fits'
+    obt = pycfitsio.open(filename)['OBT'].read_column(0)/2**16
+    psi1 = arcmin2rad(pycfitsio.open(filename)['PSI_1'].read_column(0))
+    psi2 = arcmin2rad(pycfitsio.open(filename)['PSI_2'].read_column(0))
+    i_interp = np.interp(obtx, obt, np.arange(len(obt)))
+    i_rounded = np.floor(i_interp).astype(np.int)
+    return psi1[i_rounded], psi2[i_rounded]
