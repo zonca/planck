@@ -108,5 +108,4 @@ def ptcor1(od):
     qcor = qarray.from_vectors(np.array([0,0,1]),zn)
 
     qcor_tot = qarray.mult(q_str_LOS, qarray.mult(qcor, qarray.inv(q_str_LOS)))
-
     return qcor_tot

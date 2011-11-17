@@ -54,7 +54,17 @@ class TestCorrection(unittest.TestCase):
     def test_ahf_wobble_correction_angles(self):
         obt = [106753612931221/2.**16 + 1] #PID 62, first of OD 93
         wobble_rot = ahf_wobble(obt)
+        #TODO implement real test
 
+    def test_read_ptcor1(self):
+        delta_inscan, delta_xscan = read_ptcor1(100)
+        self.assertAlmostEqual(delta_inscan,  -0.16329599216)
+        self.assertAlmostEqual(delta_xscan,   -0.0351865320531)
+
+    def test_ptcor1(self):
+        
+        rot = ptcor1(100)
+        #TODO implement real test
 
 if __name__ == '__main__':
     unittest.main()
