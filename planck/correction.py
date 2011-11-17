@@ -89,3 +89,24 @@ def get_ahf_wobble(obtx):
     i_interp = np.interp(obtx, obt, np.arange(len(obt)))
     i_rounded = np.floor(i_interp).astype(np.int)
     return psi1[i_rounded], psi2[i_rounded]
+
+def read_ptcor1(od):
+    data = np.loadtxt('/project/projectdirs/planck/user/zonca/software/testenv/testenv/private/tab_cor1.txt')
+    i = data[:, 0].searchsorted(od)
+    return data[i, 1], data[i, 2]
+
+def ptcor1(od):
+    # Boresight rotation of 85 degrees
+    # pio.GetQuaternion("IMO:SAT:SVM:StarTracker:RATT_LOS:Quaternion",imop).q
+    # for detilt_ring_t2
+    q_str_LOS = np.array([ 0.99904822,  0.        ,  0.04361939,  0.        ])
+
+    delta_inscan, delta_xscan = read_ptcor1(od)
+    zn = np.array([delta_xscan, -delta_inscan, 1])
+    zn /= np.linalg.norm(zn) 
+    #Compute rotation quaternion from vectos
+    qcor = qarray.from_vectors(np.array([0,0,1]),zn)
+
+    qcor_tot = qarray.mult(q_str_LOS, qarray.mult(qcor, qarray.inv(q_str_LOS)))
+
+    return qcor_tot
