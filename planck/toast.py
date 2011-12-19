@@ -382,12 +382,75 @@ class ToastNoiseMC(ToastConfig):
         self.add_pointing(tele)
         self.add_observations(tele)
         self.add_tods()
-        self.add_noise()
+        self.add_sim_noise()
         if not self.bad_rings is None:
             self.add_bad_rings()
-        self.add_channels(tele)
+
+        params = pytoast.ParMap()
+        params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
+
+        for ch in self.channels:
+# create stack
+            stack_elements = ["nse_" + ch.tag, "raw_" + ch.tag]
+            expr = ','.join(['PUSH:' + el for el in stack_elements])
+            expr += ',FLG'
+
+            if not self.bad_rings is None:
+                expr += ',PUSH:bad_%s,ADD' % ch.tag
+
+            self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
+
+            params[ "detector" ] = ch.tag
+            params[ "stream" ] = "%s/stack_%s" % (self.f.inst.name, ch.tag)
+            telescope.channel_add ( ch.tag, "native", params )
+
         if write:
             self.write()
+
+    def add_sim_noise(self):
+        """Add noise streams"""
+# This code simply assigns the RNG stream to each TOD incrementing by one each time.
+# If we require reproducibility regardless of which channel and ring combinations
+# are selected, then we need to agree upon the per-channel maximum number of rings
+# and on the absolute order of each channel within the list of streams used for a
+# single realization.
+
+        rngstream = 0
+
+# this is the TOAST variable holding the per-realization offset
+        basename = "@rngbase@"
+
+        for ch in self.channels:
+               noisestrm[ch.tag] = self.strset.stream_add ( "nse_" + ch.tag, "native", Params() )
+               noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
+
+               # add PSD
+               if self.f.inst.name == "LFI":
+                   noisestrm[ch.tag].psd_add ( "psd", "planck_rimo", Params({
+                               "start" : self.strset.observations()[0].start(),
+                               "stop" : self.strset.observations()[-1].stop(),
+                               "path": self.fpdb,
+                               "detector": ch.tag
+                   }))
+               elif self.f.inst.name == "HFI":
+                   noise.psd_add ( "psd", "ascii", Params({
+                   "start" : self.strset.observations()[0].start(),
+                   "stop" : self.strset.observations()[-1].stop(),
+                   "path": private.hfi_psd
+               }))
+
+               #for pp in observation.hfiPP:
+               for observation in self.observations:
+                   for pp in observation.PP:
+                       noisestrm[ch.tag].tod_add ( "%05d" % pp.number, "sim_noise", Params({
+                           "noise" : noisename,
+                           "base" : basename,
+                           "start" : pp.start,
+                           "stop" : pp.stop,
+                           "offset" : rngstream
+                   }))
+                       rngstream += 1
+
           
 if __name__ == '__main__':
 
