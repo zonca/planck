@@ -341,6 +341,8 @@ class ToastConfigCal(ToastConfig):
             params[ "stream" ] = "%s/%s_%s" % (self.f.inst.name, name, ch.tag)
             params[ "noise" ] = "%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( '_'.join([name, ch.tag]), "native", params )
+
+class ToastNoiseMC(ToastConfig):
           
 if __name__ == '__main__':
 
