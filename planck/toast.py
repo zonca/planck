@@ -343,6 +343,51 @@ class ToastConfigCal(ToastConfig):
             telescope.channel_add ( '_'.join([name, ch.tag]), "native", params )
 
 class ToastNoiseMC(ToastConfig):
+
+    def run(self, write=True):
+        """Call the python-toast bindings to create the xml configuration file"""
+        self.conf = pytoast.Run()
+          
+        sky = self.conf.sky_add ( "sky", "native", pytoast.ParMap() )
+
+        mapset = sky.mapset_add ( '_'.join(['healpix',self.components, self.ordering]), "healpix", 
+            Params({
+                "path"  : self.outmap,
+                "fullsky"  : "TRUE",
+                "stokes"  : self.components,
+                "order"  : self.ordering,
+                "coord"  : self.coord,
+                "nside"  : str(self.nside),
+                "units"  : "micro-K"
+            }))
+
+        # current RNG stream offset for the entire realization.  This is set to zero initially, and then can be incremented by Madam
+        self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
+
+        if self.f.inst.name == 'LFI':
+            wobble_offset = 0;
+        else:
+            wobble_offset = self.wobble["psi2_offset"]
+
+        tele = self.conf.telescope_add ( "planck", "planck", 
+            Params({  
+                "wobblepsi2dir":self.wobble["psi2_dir"],
+                "wobblepsi2_ref":self.wobble["psi2_ref"],
+                "wobblepsi1_ref":self.wobble["psi1_ref"],
+                "wobblepsi2_offset":wobble_offset
+            }))
+
+        fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", Params({"path":self.fpdb}) )
+
+        self.add_pointing(tele)
+        self.add_observations(tele)
+        self.add_tods()
+        self.add_noise()
+        if not self.bad_rings is None:
+            self.add_bad_rings()
+        self.add_channels(tele)
+        if write:
+            self.write()
           
 if __name__ == '__main__':
 
