@@ -15,6 +15,15 @@ import pytoast
 
 l.basicConfig(level=l.INFO)
 
+def get_byfreq_PP_boundaries(freq, PID):
+    """Load the start and stop OBT timestamps extracted from exchange format files"""
+    ppfile = '/global/scratch/sd/colliera/LS/%d/ts.txt' % freq
+    print('Loading ' + ppfile)
+    ppf = np.loadtxt(ppfile)
+    # LFI PID 3 is row 1
+    filerow = PID - 2
+    return ppf[filerow]
+
 def get_eff_od(file_path):
     return int(os.path.basename(file_path).split('-')[1])
 
@@ -444,11 +453,12 @@ class ToastNoiseMC(ToastConfig):
                #for pp in observation.hfiPP:
                for observation in self.observations:
                    for pp in observation.PP:
+                       pp_boundaries = get_byfreq_PP_boundaries(self.f.freq, pp.number)
                        noisestrm[ch.tag].tod_add ( "%05d" % pp.number, "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
-                           "start" : pp.start,
-                           "stop" : pp.stop,
+                           "start" : pp_boundaries[0],
+                           "stop" : pp_boundaries[1],
                            "offset" : rngstream
                    }))
                        rngstream += 1
