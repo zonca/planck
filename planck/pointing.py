@@ -3,7 +3,7 @@ from __future__ import division
 import logging as l 
 import numpy as np
 from LFI import LFI
-from IPython.Debugger import Tracer; debug_here = Tracer()
+#from IPython.Debugger import Tracer; debug_here = Tracer()
 import re
 import quaternionarray as qarray
 from utils import grouper
@@ -55,7 +55,9 @@ class Pointing(object):
 
         #debug_here()
         if self.wobble:
-           ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt,offset=wobble_offset))
+           #ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt,offset=wobble_offset))
+            # DX8 wobble angle correction
+           ahf_quat = qarray.mult(ahf_quat, correction.ahf_wobble(ahf_obt))
            qarray.norm_inplace(ahf_quat)
 
         if interp is None:
