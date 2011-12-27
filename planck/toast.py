@@ -15,14 +15,17 @@ import pytoast
 
 l.basicConfig(level=l.INFO)
 
-def get_byfreq_PP_boundaries(freq, PID):
-    """Load the start and stop OBT timestamps extracted from exchange format files"""
-    ppfile = '/global/scratch/sd/colliera/LS/%d/ts.txt' % freq
-    print('Loading ' + ppfile)
-    ppf = np.loadtxt(ppfile)
-    # LFI PID 3 is row 1
-    filerow = PID - 2
-    return ppf[filerow]
+class PPBoundaries:
+    def __init__(self, freq):
+        """Load the start and stop OBT timestamps extracted from exchange format files"""
+        ppfile = '/global/scratch/sd/colliera/LS/%d/ts.txt' % freq
+        print('Loading ' + ppfile)
+        self.ppf = np.loadtxt(ppfile)
+
+    def get(self, PID):
+        # LFI PID 3 is row 1
+        filerow = PID - 2
+        return self.ppf[filerow]
 
 def get_eff_od(file_path):
     return int(os.path.basename(file_path).split('-')[1])
@@ -372,7 +375,7 @@ class ToastNoiseMC(ToastConfig):
 
         # current RNG stream offset for the entire realization.  This is set to zero initially, and then can be incremented by Madam
         # NOT IMPLEMENTED IN TOAST
-        # self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
+        self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
 
         if self.f.inst.name == 'LFI':
             wobble_offset = 0;
@@ -412,7 +415,7 @@ class ToastNoiseMC(ToastConfig):
 
             params[ "detector" ] = ch.tag
             params[ "stream" ] = "%s/stack_%s" % (self.f.inst.name, ch.tag)
-            telescope.channel_add ( ch.tag, "native", params )
+            tele.channel_add ( ch.tag, "native", params )
 
         if write:
             self.write()
@@ -425,6 +428,8 @@ class ToastNoiseMC(ToastConfig):
 # and on the absolute order of each channel within the list of streams used for a
 # single realization.
 
+        self.pp_boundaries = PPBoundaries(self.f.freq)
+
         rngstream = 0
 
 # this is the TOAST variable holding the per-realization offset
@@ -433,11 +438,12 @@ class ToastNoiseMC(ToastConfig):
 
         for ch in self.channels:
                noisestrm[ch.tag] = self.strset.stream_add ( "nse_" + ch.tag, "native", Params() )
+               noise = self.strset.noise_add ( "noise_" + ch.tag, "native", Params() )
                noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
 
                # add PSD
                if self.f.inst.name == "LFI":
-                   noisestrm[ch.tag].psd_add ( "psd", "planck_rimo", Params({
+                   noise.psd_add ( "psd", "planck_rimo", Params({
                                "start" : self.strset.observations()[0].start(),
                                "stop" : self.strset.observations()[-1].stop(),
                                "path": self.fpdb,
@@ -453,7 +459,7 @@ class ToastNoiseMC(ToastConfig):
                #for pp in observation.hfiPP:
                for observation in self.observations:
                    for pp in observation.PP:
-                       pp_boundaries = get_byfreq_PP_boundaries(self.f.freq, pp.number)
+                       pp_boundaries = self.pp_boundaries.get(pp.number)
                        noisestrm[ch.tag].tod_add ( "%05d" % pp.number, "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
@@ -465,7 +471,7 @@ class ToastNoiseMC(ToastConfig):
 
           
 if __name__ == '__main__':
-    self = ToastNoiseMC([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', efftype='C', output_xml='30_break.xml')
+    self = ToastNoiseMC([96, 103], 30, efftype='C', nside=1024, output_xml='30_noise.xml')
     self.run()
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
