@@ -328,31 +328,11 @@ class ToastConfig(object):
         for ch in self.channels:
             params[ "detector" ] = ch.tag
             if (self.calibration_file is None):
-                params[ "stream" ] = "%s/raw_%s" % (self.f.inst.name, ch.tag)
+                params[ "stream" ] = "/planck/%s/raw_%s" % (self.f.inst.name, ch.tag)
             else:
-                params[ "stream" ] = "%s/stack_%s" % (self.f.inst.name, ch.tag)
-            params[ "noise" ] = "%s/noise_%s" % (self.f.inst.name, ch.tag)
+                params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
+            params[ "noise" ] = "/planck/%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( ch.tag, "native", params )
-
-class ToastConfigCal(ToastConfig):
-
-    def add_exchange_format(self, name, folder):
-        """Exchange format files should have exactly same file boundaries as raw tod"""
-        telescope = self.conf.telescopes()[0]
-        for ch in self.channels:
-            stream = self.strset.stream_add ( '_'.join([name, ch.tag]), "native", Params() )
-            for tod_name, tod_par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
-                od = int(tod_name.split('_')[1].strip('ab'))
-                params = copy.copy(tod_par)
-                params['path'] = glob.glob(os.path.join(folder, "%04d" % od, "?%03d*" % ch.f.freq))[0]
-                stream.tod_add(tod_name, "planck_exchange", Params(params))
-        params = pytoast.ParMap()
-        params[ "focalplane" ] = telescope.focalplanes()[0].name()
-        for ch in self.channels:
-            params[ "detector" ] = ch.tag
-            params[ "stream" ] = "%s/%s_%s" % (self.f.inst.name, name, ch.tag)
-            params[ "noise" ] = "%s/noise_%s" % (self.f.inst.name, ch.tag)
-            telescope.channel_add ( '_'.join([name, ch.tag]), "native", params )
 
 class ToastNoiseMC(ToastConfig):
 
@@ -414,7 +394,7 @@ class ToastNoiseMC(ToastConfig):
             self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
 
             params[ "detector" ] = ch.tag
-            params[ "stream" ] = "%s/stack_%s" % (self.f.inst.name, ch.tag)
+            params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
             tele.channel_add ( ch.tag, "native", params )
 
         if write:
@@ -471,7 +451,7 @@ class ToastNoiseMC(ToastConfig):
 
           
 if __name__ == '__main__':
-    self = ToastNoiseMC([96, 103], 30, efftype='C', nside=1024, output_xml='30_noise.xml')
+    self = ToastNoiseMC([96, 103], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
     self.run()
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
