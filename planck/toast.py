@@ -395,6 +395,7 @@ class ToastNoiseMC(ToastConfig):
 
             params[ "detector" ] = ch.tag
             params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
+            params[ "noise" ] = "/planck/%s/noise_%s" % (self.f.inst.name, ch.tag)
             tele.channel_add ( ch.tag, "native", params )
 
         if write:
