@@ -235,7 +235,7 @@ class ToastConfig(object):
                         stack_elements.append("dipole_" + ch.tag + ",SUB")
                 expr = ','.join(['PUSH:' + el for el in stack_elements])
                 if not self.bad_rings is None:
-                    expr += ',PUSH:bad_%s,ADD' % ch.tag
+                    expr += ',PUSH:bad_%s,FLG' % ch.tag
                 calname = "cal_" + ch.tag
                 strm["stack_" + ch.tag] = self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
 
@@ -418,7 +418,7 @@ class ToastNoiseMC(ToastConfig):
         noisestrm = {}
 
         for ch in self.channels:
-               noisestrm[ch.tag] = self.strset.stream_add ( "nse_" + ch.tag, "native", Params() )
+               noisestrm[ch.tag] = self.strset.stream_add ( "noisesim_" + ch.tag, "native", Params() )
                noise = self.strset.noise_add ( "noise_" + ch.tag, "native", Params() )
                noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
 
@@ -441,7 +441,7 @@ class ToastNoiseMC(ToastConfig):
                for observation in self.observations:
                    for pp in observation.PP:
                        pp_boundaries = self.pp_boundaries.get(pp.number)
-                       noisestrm[ch.tag].tod_add ( "%05d" % pp.number, "sim_noise", Params({
+                       noisestrm[ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, pp.number), "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
                            "start" : pp_boundaries[0],
@@ -452,8 +452,10 @@ class ToastNoiseMC(ToastConfig):
 
           
 if __name__ == '__main__':
-    self = ToastNoiseMC([96, 103], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
+    self = ToastNoiseMC([96, 104], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
     self.run()
+    hfitest = ToastNoiseMC([96, 104], 100, nside=2048, ordering='NEST', coord='E', efftype='R', output_xml='hfi_noise.xml')
+    hfitest.run()
 
     #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
     #toast_config = ToastConfig([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', flag_HFI_bad_rings=False)
