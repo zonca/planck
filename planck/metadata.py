@@ -100,7 +100,7 @@ class DataSelector(object):
     def get_AHF_ods(self, obt_range):
         conn = sqlite3.connect(self.config['database'])
         c = conn.cursor()
-        values = (obt_range[0]*2**16, obt_range[-1]*2**16)
+        values = ((obt_range[0]-1)*2**16, (obt_range[-1]+1)*2**16)
         query = c.execute('select od from ahf_files where endOBT>=? and startOBT<=?', values)
         ods = [int(q[0]) for q in query]
         c.close()
