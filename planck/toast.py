@@ -437,11 +437,13 @@ class ToastNoiseMC(ToastConfig):
                    "path": private.hfi_psd
                }))
 
+
                #for pp in observation.hfiPP:
-               for observation in self.observations:
-                   for pp in observation.PP:
-                       pp_boundaries = self.pp_boundaries.get(pp.number)
-                       noisestrm[ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, pp.number), "sim_noise", Params({
+               for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+               #for observation in self.observations:
+                #   for pp in observation.PP:
+                 #      pp_boundaries = self.pp_boundaries.get(pp.number)
+                       noisestrm[ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
                            "start" : pp_boundaries[0],

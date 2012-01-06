@@ -83,9 +83,10 @@ def ahf_wobble(obt):
 def get_ahf_wobble(obtx):
     """Read psi1 and psi2 file previously extracted from observation AHF files"""
     filename = '/project/projectdirs/planck/user/seiffert/cal/WDX8/C070-0000-WDX8-20111116.fits'
-    obt = pycfitsio.open(filename)['OBT'].read_column(0)/2**16
-    psi1 = arcmin2rad(pycfitsio.open(filename)['PSI_1'].read_column(0))
-    psi2 = arcmin2rad(pycfitsio.open(filename)['PSI_2'].read_column(0))
+    with pycfitsio.open(filename) as fitsfile:
+        obt = fitsfile['OBT'].read_column(0)/2**16
+        psi1 = arcmin2rad(fitsfile['PSI_1'].read_column(0))
+        psi2 = arcmin2rad(fitsfile['PSI_2'].read_column(0))
     i_interp = np.interp(obtx, obt, np.arange(len(obt)))
     i_rounded = np.floor(i_interp).astype(np.int)
     return psi1[i_rounded], psi2[i_rounded]
