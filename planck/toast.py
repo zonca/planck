@@ -384,7 +384,7 @@ class ToastNoiseMC(ToastConfig):
 
         for ch in self.channels:
 # create stack
-            stack_elements = ["nse_" + ch.tag, "raw_" + ch.tag]
+            stack_elements = ["noisesim_" + ch.tag, "raw_" + ch.tag]
             expr = ','.join(['PUSH:' + el for el in stack_elements])
             expr += ',FLG'
 
