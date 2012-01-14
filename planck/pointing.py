@@ -57,7 +57,11 @@ class Pointing(object):
         if self.wobble:
            #ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt,offset=wobble_offset))
             # DX8 wobble angle correction
-           ahf_quat = qarray.mult(ahf_quat, correction.ahf_wobble(ahf_obt))
+           wob = correction.ahf_wobble(ahf_obt)
+           ahf_quat = qarray.mult(ahf_quat, wob)
+           #print(wob[17320:17335])
+           #print(ahf_obt[17329])
+           #34690:34705
            qarray.norm_inplace(ahf_quat)
 
         if interp is None:
