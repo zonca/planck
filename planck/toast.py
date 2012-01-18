@@ -11,7 +11,7 @@ from metadata import DataSelector
 from collections import defaultdict
 
 import logging as l
-import pytoast 
+from pytoast.core import Run, ParMap
 
 l.basicConfig(level=l.INFO)
 
@@ -36,7 +36,7 @@ def strconv(f):
 
 def Params(dic=None):
     """Creates a Toast ParMap from a python dictionary"""
-    params = pytoast.ParMap()
+    params = ParMap()
     if not dic is None:
         for k,v in dic.iteritems():
             if isinstance(v, float):
@@ -131,9 +131,9 @@ class ToastConfig(object):
 
     def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
-        self.conf = pytoast.Run()
+        self.conf = Run()
           
-        sky = self.conf.sky_add ( "sky", "native", pytoast.ParMap() )
+        sky = self.conf.sky_add ( "sky", "native", ParMap() )
 
         mapset = sky.mapset_add ( '_'.join(['healpix',self.components, self.ordering]), "healpix", 
             Params({
@@ -323,7 +323,7 @@ class ToastConfig(object):
            self.strset.stream_add ( '_'.join(['bad', ch.tag]), "planck_bad", Params({'detector':ch.tag, 'path':self.bad_rings}) )
             
     def add_channels(self, telescope):
-        params = pytoast.ParMap()
+        params = ParMap()
         params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
         for ch in self.channels:
             params[ "detector" ] = ch.tag
@@ -338,9 +338,9 @@ class ToastNoiseMC(ToastConfig):
 
     def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
-        self.conf = pytoast.Run()
+        self.conf = Run()
           
-        sky = self.conf.sky_add ( "sky", "native", pytoast.ParMap() )
+        sky = self.conf.sky_add ( "sky", "native", ParMap() )
 
         mapset = sky.mapset_add ( '_'.join(['healpix',self.components, self.ordering]), "healpix", 
             Params({
@@ -379,7 +379,7 @@ class ToastNoiseMC(ToastConfig):
         if not self.bad_rings is None:
             self.add_bad_rings()
 
-        params = pytoast.ParMap()
+        params = ParMap()
         params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
 
         for ch in self.channels:
