@@ -18,7 +18,7 @@ l.basicConfig(level=l.INFO)
 class PPBoundaries:
     def __init__(self, freq):
         """Load the start and stop OBT timestamps extracted from exchange format files"""
-        ppfile = '/global/scratch/sd/colliera/LS/%d/ts.txt' % freq
+        ppfile = '/global/scratch/sd/kisner/planck/long_rings/70_minute_max/ts_%03d_short-70m.txt' % freq
         print('Loading ' + ppfile)
         self.ppf = np.loadtxt(ppfile)
 
@@ -254,7 +254,7 @@ class ToastConfig(object):
 
             pointing_periods = observation.PP
             for pp in pointing_periods:
-                obs.interval_add( "%05d" % pp.number, "native", Params({"start":pp.start, "stop":pp.stop}) )
+                obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
               print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
@@ -454,7 +454,7 @@ class ToastNoiseMC(ToastConfig):
 
           
 if __name__ == '__main__':
-    self = ToastNoiseMC([91, 104], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
+    self = ToastNoiseMC([96, 98], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
     self.run()
     #hfitest = ToastNoiseMC([96, 104], 100, nside=2048, ordering='NEST', coord='E', efftype='R', output_xml='hfi_noise.xml')
     #hfitest.run()

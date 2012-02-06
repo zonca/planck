@@ -14,7 +14,7 @@ except exceptions.ImportError:
     print('private.py is needed to use the planck module, this is available only to members of the Planck collaboration')
     raise
 
-Period = namedtuple('Period', ['number','start','stop'])
+Period = namedtuple('Period', ['number','start','stop','splitnumber'])
 Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
 def obt2od(obt, freq=30):
@@ -166,7 +166,13 @@ class DataSelector(object):
             query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? AND start_time < end_time order by start_time ASC', (str(od),))
         else:
             query = c.execute('select pointID_unique, start_time, end_time from list_ahf_infos where od==? and start_time > 106743579730069 AND  start_time < end_time order by start_time ASC', (str(od),))
-        PP = [Period(int(q[0]),q[1]/2.**16,q[2]/2.**16) for q in query]
+
+        PP = []
+        for q in query:
+            pid_numbers= map(int, q[0].split('-'))
+            if len(pid_numbers) == 1:
+                pid_numbers.append(0)
+            PP.append( Period(pid_numbers[0],q[1]/2.**16,q[2]/2.**16, pid_numbers[1]) )
         c.close()
         return PP
 
@@ -264,11 +270,11 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
 def split_observation(OB, startobt, stopobt, startrow, stoprow):
     """Splits one observation in 2 observations"""
     PP1 = [p for p in OB.PP if p.start < startobt]
-    PP1[-1] = Period(PP1[-1].number, PP1[-1].start, startobt)
+    PP1[-1] = Period(PP1[-1].number, PP1[-1].start, startobt, PP1[-1].splitnumber)
     OB1 = Observation(od=OB.od, tag=OB.tag + 'a', start=OB.start, stop=startobt, PP=PP1, EFF=OB.EFF, break_startrow=startrow, break_stoprow=None)
 
     PP2 = [p for p in OB.PP if p.stop > stopobt]
-    PP2[0] = Period(PP2[0].number, stopobt, PP2[0].stop)
+    PP2[0] = Period(PP2[0].number, stopobt, PP2[0].stop, PP2[0].splitnumber)
     OB2 = Observation(od=OB.od, tag=OB.tag + 'b', start=stopobt, stop=OB.stop, PP=PP2, EFF=OB.EFF, break_startrow=None, break_stoprow=stoprow)
 
     return OB1, OB2
