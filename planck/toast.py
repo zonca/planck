@@ -52,7 +52,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None, include_preFLS=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None, include_preFLS=None, ptcorfile=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -79,6 +79,7 @@ class ToastConfig(object):
         self.channels = parse_channels(channels)
         self.f = self.channels[0].f
         self.output_xml = output_xml
+        self.ptcorfile = ptcorfile
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
         self.config = {}
@@ -151,13 +152,17 @@ class ToastConfig(object):
         else:
             wobble_offset = self.wobble["psi2_offset"]
 
-        tele = self.conf.telescope_add ( "planck", "planck", 
-            Params({  
+        teleparams = {  
                 "wobblepsi2dir":self.wobble["psi2_dir"],
                 "wobblepsi2_ref":self.wobble["psi2_ref"],
                 "wobblepsi1_ref":self.wobble["psi1_ref"],
                 "wobblepsi2_offset":wobble_offset
-            }))
+            }
+        if self.ptcorfile:
+            teleparams['ptcorfile'] = self.ptcorfile
+
+        tele = self.conf.telescope_add ( "planck", "planck", 
+            Params(teleparams))
 
         fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", Params({"path":self.fpdb}) )
 
@@ -454,7 +459,7 @@ class ToastNoiseMC(ToastConfig):
 
           
 if __name__ == '__main__':
-    self = ToastNoiseMC([96, 98], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml')
+    self = ToastNoiseMC([96, 98], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml', ptcorfile='/path/to/ptcor.csv')
     self.run()
     #hfitest = ToastNoiseMC([96, 104], 100, nside=2048, ordering='NEST', coord='E', efftype='R', output_xml='hfi_noise.xml')
     #hfitest.run()
