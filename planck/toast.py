@@ -223,21 +223,17 @@ class ToastConfig(object):
         for ch in self.channels:
           rawname = "raw_" + ch.tag
           strm[ch.tag] = self.strset.stream_add ( rawname, "native", Params() )
-        if (not self.calibration_file is None) and self.dipole_removal:
-            for ch in self.channels:
-                strm["dipole_" + ch.tag] = self.strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
 
-        if not self.calibration_file is None:
-            for ch in self.channels:
-                strm["cal_" + ch.tag] = self.strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
-
+        if (not self.calibration_file is None) or self.dipole_removal or (not self.bad_rings is None):
             #stack
             for ch in self.channels:
                 stack_elements = ["raw_" + ch.tag]
                 if (not self.calibration_file is None):
+                    strm["cal_" + ch.tag] = self.strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
                     stack_elements.append("cal_" + ch.tag + ",MUL")
-                    if self.dipole_removal:
-                        stack_elements.append("dipole_" + ch.tag + ",SUB")
+                if self.dipole_removal:
+                    strm["dipole_" + ch.tag] = self.strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
+                    stack_elements.append("dipole_" + ch.tag + ",SUB")
                 expr = ','.join(['PUSH:' + el for el in stack_elements])
                 if not self.bad_rings is None:
                     expr += ',PUSH:bad_%s,FLG' % ch.tag
@@ -333,9 +329,9 @@ class ToastConfig(object):
         for ch in self.channels:
             params[ "detector" ] = ch.tag
             if (self.calibration_file is None):
-                params[ "stream" ] = "/planck/%s/raw_%s" % (self.f.inst.name, ch.tag)
-            else:
                 params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
+            else:
+                params[ "stream" ] = "/planck/%s/raw_%s" % (self.f.inst.name, ch.tag)
             params[ "noise" ] = "/planck/%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( ch.tag, "native", params )
 
