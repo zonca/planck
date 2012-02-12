@@ -18,7 +18,7 @@ l.basicConfig(level=l.INFO)
 class PPBoundaries:
     def __init__(self, freq):
         """Load the start and stop OBT timestamps extracted from exchange format files"""
-        ppfile = '/global/scratch/sd/kisner/planck/long_rings/70_minute_max/ts_%03d_short-70m.txt' % freq
+        ppfile = '/project/projectdirs/planck/data/mission/rings_dx7/70_minute_max/ts_%03d_short-70m.txt' % freq
         print('Loading ' + ppfile)
         self.ppf = np.loadtxt(ppfile)
 
@@ -52,7 +52,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=True, efftype=None, flag_HFI_bad_rings=None, include_preFLS=None, ptcorfile=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -61,6 +61,7 @@ class ToastConfig(object):
             remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
+            noise_tod: Add simulated noise TODs
             flag_HFI_bad_rings: if None, flagged just for HFI
             include_preFLS : if None, True for LFI
 
@@ -80,17 +81,14 @@ class ToastConfig(object):
         self.f = self.channels[0].f
         self.output_xml = output_xml
         self.ptcorfile = ptcorfile
+        self.noise_tod = noise_tod
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
 
         self.config = {}
         if self.f.inst.name == 'LFI':
             self.config['pairflags'] = True
-            if include_preFLS is None:
-                include_preFLS = True
         else:
             self.config['pairflags'] = False
-            if include_preFLS is None:
-                include_preFLS = False
 
         if efftype is None:
             efftype ='R'
@@ -130,9 +128,13 @@ class ToastConfig(object):
         else:
             self.bad_rings = None
 
+
     def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
         self.conf = Run()
+
+        if ( self.noise_tod ):
+            self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
           
         sky = self.conf.sky_add ( "sky", "native", ParMap() )
 
@@ -158,6 +160,7 @@ class ToastConfig(object):
                 "wobblepsi1_ref":self.wobble["psi1_ref"],
                 "wobblepsi2_offset":wobble_offset
             }
+
         if self.ptcorfile:
             teleparams['ptcorfile'] = self.ptcorfile
 
@@ -168,25 +171,27 @@ class ToastConfig(object):
 
         self.add_pointing(tele)
         self.add_observations(tele)
-        self.add_tods()
+        self.add_streams()
+        self.add_eff_tods()
         self.add_noise()
-        if not self.bad_rings is None:
-            self.add_bad_rings()
         self.add_channels(tele)
         if write:
             self.write()
+
 
     def write(self):
         # write out XML
         self.conf.write ( self.output_xml )
 
+
     def add_pointing(self, telescope):
         # Add pointing files
         for i,ahf in enumerate(self.data_selector.get_AHF()):  
-          path = str(ahf[0])
-          if self.remote_ahf_folder:
-            path = path.replace(self.data_selector.config['ahf_folder'], self.remote_ahf_folder)
-          telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": path}))
+            path = str(ahf[0])
+            if self.remote_ahf_folder:
+                path = path.replace(self.data_selector.config['ahf_folder'], self.remote_ahf_folder)
+            telescope.pointing_add ( "%04d" % i, "planck_ahf", Params({"path": path}))
+
 
     @property
     def observations(self):
@@ -195,6 +200,7 @@ class ToastConfig(object):
         except:
             self._observations = self.data_selector.get_OBS()
             return self.observations
+
 
     def add_observations(self, telescope):
         """Each observation is a OD as specified in the AHF files"""
@@ -216,30 +222,6 @@ class ToastConfig(object):
         # then the observation will span the time range of the EFF data specified in
         # the "times1", "times2", "times3", etc parameters.
 
-        # Add streams for real data
-
-        strm = {}
-
-        for ch in self.channels:
-          rawname = "raw_" + ch.tag
-          strm[ch.tag] = self.strset.stream_add ( rawname, "native", Params() )
-
-        if (not self.calibration_file is None) or self.dipole_removal or (not self.bad_rings is None):
-            #stack
-            for ch in self.channels:
-                stack_elements = ["raw_" + ch.tag]
-                if (not self.calibration_file is None):
-                    strm["cal_" + ch.tag] = self.strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
-                    stack_elements.append("cal_" + ch.tag + ",MUL")
-                if self.dipole_removal:
-                    strm["dipole_" + ch.tag] = self.strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
-                    stack_elements.append("dipole_" + ch.tag + ",SUB")
-                expr = ','.join(['PUSH:' + el for el in stack_elements])
-                if not self.bad_rings is None:
-                    expr += ',PUSH:bad_%s,FLG' % ch.tag
-                calname = "cal_" + ch.tag
-                strm["stack_" + ch.tag] = self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
-
         broken_od = defaultdict(None)
         # Add observations
         self.tod_name_list = defaultdict(list) 
@@ -258,38 +240,92 @@ class ToastConfig(object):
                 obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
-              print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
-              for i, file_path in enumerate(observation.EFF):
-                  eff_od = get_eff_od(file_path)
-                  # Add TODs for this stream
-                  params = {}
-                  params[ "flagmask" ] = self.flagmask
-                  params[ "obtmask" ] = self.obtmask
-                  params[ "hdu" ] = ch.eff_tag
-                  if self.config['pairflags']:
-                    params[ "pairflags" ] = 'TRUE'
-                  if self.remote_exchange_folder:
-                      params[ "path" ] = file_path.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
-                  else:
-                      params[ "path" ] = file_path
-                  tag = ''
-                  if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
-                      params['rows'] = observation.break_startrow + 1
-                      tag = 'a'
-                      broken_od[ch.tag] = eff_od
-                  if not observation.break_stoprow is None and broken_od[ch.tag]==eff_od:
-                      params['startrow'] = observation.break_stoprow
-                      tag = 'b'
-                      broken_od[ch.tag] = None
-                  name = "%s_%d%s" % (ch.tag, eff_od, tag)
-                  if name not in self.tod_name_list[ch.tag]:
-                      print('add ' + name)
-                      self.tod_name_list[ch.tag].append(name)
-                      self.tod_par_list[ch.tag].append(params)
-                  else:
-                      print("skip " + name)
+                print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
+                for i, file_path in enumerate(observation.EFF):
+                    eff_od = get_eff_od(file_path)
+                    # Add TODs for this stream
+                    params = {}
+                    params[ "flagmask" ] = self.flagmask
+                    params[ "obtmask" ] = self.obtmask
+                    params[ "hdu" ] = ch.eff_tag
+                    if self.config['pairflags']:
+                        params[ "pairflags" ] = 'TRUE'
+                    if self.remote_exchange_folder:
+                        params[ "path" ] = file_path.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
+                    else:
+                        params[ "path" ] = file_path
+                    tag = ''
+                    if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
+                        params['rows'] = observation.break_startrow + 1
+                        tag = 'a'
+                        broken_od[ch.tag] = eff_od
+                    if not observation.break_stoprow is None and broken_od[ch.tag]==eff_od:
+                        params['startrow'] = observation.break_stoprow
+                        tag = 'b'
+                        broken_od[ch.tag] = None
+                    name = "%s_%d%s" % (ch.tag, eff_od, tag)
+                    if name not in self.tod_name_list[ch.tag]:
+                        print('add ' + name)
+                        self.tod_name_list[ch.tag].append(name)
+                        self.tod_par_list[ch.tag].append(params)
+                    else:
+                        print("skip " + name)
 
-    def add_tods(self):
+
+    def add_streams(self):
+        # Add streams for data components
+        rngstream = 0
+        basename = "@rngbase@"
+
+        self.strm = {}
+
+        for ch in self.channels:
+            stack_elements = []
+
+            # add simulated noise stream
+            if ( self.noise_tod ):
+                noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
+                self.pp_boundaries = PPBoundaries(self.f.freq)
+                self.strm["simnoise_" + ch.tag] = self.strset.stream_add( "simnoise_" + ch.tag, "native", Params( ) )
+                stack_elements.append( "PUSH:simnoise_" + ch.tag )
+                for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+                    self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
+                           "noise" : noisename,
+                           "base" : basename,
+                           "start" : pp_boundaries[0],
+                           "stop" : pp_boundaries[1],
+                           "offset" : rngstream
+                    }))
+                    rngstream += 1
+        
+            # add real data stream, either for flags or data plus flags
+            self.strm["raw_" + ch.tag] = self.strset.stream_add ( "raw_" + ch.tag, "native", Params() )
+            if ( self.noise_tod ):
+                stack_elements.append( "PUSH:raw_" + ch.tag + ",FLG" )
+            else:
+                stack_elements.append( "PUSH:raw_" + ch.tag )
+
+            # add calibration stream
+            if (not self.calibration_file is None):
+                self.strm["cal_" + ch.tag] = self.strset.stream_add( "cal_" + ch.tag, "planck_cal", Params( {"hdu":ch.tag, "path":self.calibration_file } ) )
+                stack_elements.append("PUSH:cal_" + ch.tag + ",MUL")
+
+            # dipole subtract
+            if self.dipole_removal:
+                self.strm["dipole_" + ch.tag] = self.strset.stream_add( "dipole_" + ch.tag, "dipole", Params( {"channel":ch.tag, "coord":"E"} ) )
+                stack_elements.append("PUSH:dipole_" + ch.tag + ",SUB")
+
+            # bad rings
+            if not self.bad_rings is None:
+                self.strm["bad_" + ch.tag] = self.strset.stream_add ( "bad_" + ch.tag, "planck_bad", Params({'detector':ch.tag, 'path':self.bad_rings}) )
+                stack_elements.append("PUSH:bad_" + ch.tag + ",FLG")
+
+            # stack
+            expr = ','.join([el for el in stack_elements])
+            self.strm["stack_" + ch.tag] = self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
+
+
+    def add_eff_tods(self):
         """Add TOD files already included in tod_name_list and tod_par_list to the streamset"""
         # remove duplicate files on breaks
         for ch in self.channels:
@@ -303,168 +339,83 @@ class ToastConfig(object):
                     pass
     
         # add EFF to stream
-        for ch, stream in zip(self.channels, self.strset.streams()):
-             for name, par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
-                  stream.tod_add ( name, "planck_exchange", Params(par) ) 
+        for ch in self.channels:
+            for name, par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
+                self.strm["raw_" + ch.tag].tod_add ( name, "planck_exchange", Params(par) )
+
 
     def add_noise(self):
-        # Add white-noise 1 PSD per mission
-        for ch in self.channels:
-            noise_name = "noise_" + ch.tag
-            noise_stream = self.strset.noise_add ( noise_name, "native", Params() )
-            noise_stream.psd_add ( "white", "native", Params({
-                "start" : self.strset.observations()[0].start(),
-                "stop" : self.strset.observations()[-1].stop(),
-                "rate": ch.sampling_freq,
-                "rms": ch.white_noise 
-            }))
+        # Add RIMO noise model (LFI) or mission average PSD (HFI)
 
-    def add_bad_rings(self):
         for ch in self.channels:
-           self.strset.stream_add ( '_'.join(['bad', ch.tag]), "planck_bad", Params({'detector':ch.tag, 'path':self.bad_rings}) )
+            noise = self.strset.noise_add ( "noise_" + ch.tag, "native", Params() )
+
+            # add PSD
+            if self.f.inst.name == "LFI":
+                noise.psd_add ( "psd", "planck_rimo", Params({
+                                "start" : self.strset.observations()[0].start(),
+                                "stop" : self.strset.observations()[-1].stop(),
+                                "path": self.fpdb,
+                                "detector": ch.tag
+                }))
+            elif self.f.inst.name == "HFI":
+                psdname = private.hfi_psd + "detnoise_fit_" + ch.tag + ".psd"
+                noise.psd_add ( "psd", "ascii", Params({
+                                "start" : self.strset.observations()[0].start(),
+                                "stop" : self.strset.observations()[-1].stop(),
+                                "path": psdname
+               }))
+
             
     def add_channels(self, telescope):
         params = ParMap()
         params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
         for ch in self.channels:
             params[ "detector" ] = ch.tag
-            if (self.calibration_file is None):
-                params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
-            else:
-                params[ "stream" ] = "/planck/%s/raw_%s" % (self.f.inst.name, ch.tag)
+            params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
             params[ "noise" ] = "/planck/%s/noise_%s" % (self.f.inst.name, ch.tag)
             telescope.channel_add ( ch.tag, "native", params )
 
-class ToastNoiseMC(ToastConfig):
 
-    def run(self, write=True):
-        """Call the python-toast bindings to create the xml configuration file"""
-        self.conf = Run()
-          
-        sky = self.conf.sky_add ( "sky", "native", ParMap() )
-
-        mapset = sky.mapset_add ( '_'.join(['healpix',self.components, self.ordering]), "healpix", 
-            Params({
-                "path"  : self.outmap,
-                "fullsky"  : "TRUE",
-                "stokes"  : self.components,
-                "order"  : self.ordering,
-                "coord"  : self.coord,
-                "nside"  : str(self.nside),
-                "units"  : "micro-K"
-            }))
-
-        # current RNG stream offset for the entire realization.  This is set to zero initially, and then can be incremented by Madam
-        # NOT IMPLEMENTED IN TOAST
-        self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
-
-        if self.f.inst.name == 'LFI':
-            wobble_offset = 0;
-        else:
-            wobble_offset = self.wobble["psi2_offset"]
-
-        tele = self.conf.telescope_add ( "planck", "planck", 
-            Params({  
-                "wobblepsi2dir":self.wobble["psi2_dir"],
-                "wobblepsi2_ref":self.wobble["psi2_ref"],
-                "wobblepsi1_ref":self.wobble["psi1_ref"],
-                "wobblepsi2_offset":wobble_offset
-            }))
-
-        fp = tele.focalplane_add ( "FP_%s" % self.f.inst.name, "planck_rimo", Params({"path":self.fpdb}) )
-
-        self.add_pointing(tele)
-        self.add_observations(tele)
-        self.add_tods()
-        self.add_sim_noise()
-        if not self.bad_rings is None:
-            self.add_bad_rings()
-
-        params = ParMap()
-        params[ "focalplane" ] = self.conf.telescopes()[0].focalplanes()[0].name()
-
-        for ch in self.channels:
-# create stack
-            stack_elements = ["noisesim_" + ch.tag, "raw_" + ch.tag]
-            expr = ','.join(['PUSH:' + el for el in stack_elements])
-            expr += ',FLG'
-
-            if not self.bad_rings is None:
-                expr += ',PUSH:bad_%s,ADD' % ch.tag
-
-            self.strset.stream_add ( "stack_" + ch.tag, "stack", Params( {"expr":expr} ) )
-
-            params[ "detector" ] = ch.tag
-            params[ "stream" ] = "/planck/%s/stack_%s" % (self.f.inst.name, ch.tag)
-            params[ "noise" ] = "/planck/%s/noise_%s" % (self.f.inst.name, ch.tag)
-            tele.channel_add ( ch.tag, "native", params )
-
-        if write:
-            self.write()
-
-    def add_sim_noise(self):
-        """Add noise streams"""
-# This code simply assigns the RNG stream to each TOD incrementing by one each time.
-# If we require reproducibility regardless of which channel and ring combinations
-# are selected, then we need to agree upon the per-channel maximum number of rings
-# and on the absolute order of each channel within the list of streams used for a
-# single realization.
-
-        self.pp_boundaries = PPBoundaries(self.f.freq)
-
-        rngstream = 0
-
-# this is the TOAST variable holding the per-realization offset
-        basename = "@rngbase@"
-        noisestrm = {}
-
-        for ch in self.channels:
-               noisestrm[ch.tag] = self.strset.stream_add ( "noisesim_" + ch.tag, "native", Params() )
-               noise = self.strset.noise_add ( "noise_" + ch.tag, "native", Params() )
-               noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
-
-               # add PSD
-               if self.f.inst.name == "LFI":
-                   noise.psd_add ( "psd", "planck_rimo", Params({
-                               "start" : self.strset.observations()[0].start(),
-                               "stop" : self.strset.observations()[-1].stop(),
-                               "path": self.fpdb,
-                               "detector": ch.tag
-                   }))
-               elif self.f.inst.name == "HFI":
-                   noise.psd_add ( "psd", "ascii", Params({
-                   "start" : self.strset.observations()[0].start(),
-                   "stop" : self.strset.observations()[-1].stop(),
-                   "path": private.hfi_psd
-               }))
-
-
-               #for pp in observation.hfiPP:
-               for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
-               #for observation in self.observations:
-                #   for pp in observation.PP:
-                 #      pp_boundaries = self.pp_boundaries.get(pp.number)
-                       noisestrm[ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
-                           "noise" : noisename,
-                           "base" : basename,
-                           "start" : pp_boundaries[0],
-                           "stop" : pp_boundaries[1],
-                           "offset" : rngstream
-                   }))
-                       rngstream += 1
-
-          
 if __name__ == '__main__':
-    self = ToastNoiseMC([96, 98], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='30_noise.xml', ptcorfile='/path/to/ptcor.csv')
-    self.run()
-    #hfitest = ToastNoiseMC([96, 104], 100, nside=2048, ordering='NEST', coord='E', efftype='R', output_xml='hfi_noise.xml')
-    #hfitest.run()
 
-    #toast_config = ToastConfig([95, 102], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', remote_exchange_folder='/scratch/scratchdirs/planck/data/mission/lfi_dx7s_conv/', remote_ahf_folder='/scratch/scratchdirs/planck/data/mission/AHF_v2/', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits')
-    #toast_config = ToastConfig([91, 200], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_break.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', flag_HFI_bad_rings=False)
-    #toast_config.run()
-    #toast_config = ToastConfigCal([91, 95], 30, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder='/project/projectdirs/planck/data/mission/lfi_ops_dx7', output_xml='30_cal_91-95.xml', efftype='C')
-    #toast_config.run(False)
-    #toast_config.add_exchange_format('solar_system_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_solar_system/')
-    #toast_config.add_exchange_format('orbital_dipole', '/global/scratch/sd/planck/user/zonca/data/LFI_dipole_orbital/')
-    #toast_config.write()
+    # Default LFI run
+
+    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_default.xml')
+    conf.run()
+
+    # LFI run with noise simulation and real data flags
+    
+    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simnoise.xml', noise_tod=True)
+    conf.run()
+
+    # LFI real data run with calibration and dipole subtraction
+
+    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True)
+    conf.run()
+
+    # LFI noise simulation with real flags, calibration and dipole subtraction
+
+    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True, noise_tod=True)
+    conf.run()
+
+    # HFI default run
+
+    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_default.xml')
+    conf.run()
+
+    # HFI noise simulation
+
+    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simnoise.xml', noise_tod=True)
+    conf.run()
+
+    # HFI real data run with calibration and dipole subtraction
+
+    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True)
+    conf.run()
+
+    # HFI noise simulation with real flags, calibration and dipole subtraction
+
+    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True, noise_tod=True)
+    conf.run()
+
