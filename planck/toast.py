@@ -83,6 +83,82 @@ class ToastConfig(object):
         self.ptcorfile = ptcorfile
         self.noise_tod = noise_tod
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
+        self.rngorder = {
+            'LFI18M' : 0,
+            'LFI18S' : 1,
+            'LFI19M' : 2,
+            'LFI19S' : 3,
+            'LFI20M' : 4,
+            'LFI20S' : 5,
+            'LFI21M' : 6,
+            'LFI21S' : 7,
+            'LFI22M' : 8,
+            'LFI22S' : 9,
+            'LFI23M' : 10,
+            'LFI23S' : 11,
+            'LFI24M' : 12,
+            'LFI24S' : 13,
+            'LFI25M' : 14,
+            'LFI25S' : 15,
+            'LFI26M' : 16,
+            'LFI26S' : 17,
+            'LFI27M' : 18,
+            'LFI27S' : 19,
+            'LFI28M' : 20,
+            'LFI28S' : 21,
+            '100-1a' : 22,
+            '100-1b' : 23,
+            '100-2a' : 24,
+            '100-2b' : 25,
+            '100-3a' : 26,
+            '100-3b' : 27,
+            '100-4a' : 28,
+            '100-4b' : 29,
+            '143-1a' : 30,
+            '143-1b' : 31,
+            '143-2a' : 32,
+            '143-2b' : 33,
+            '143-3a' : 34,
+            '143-3b' : 35,
+            '143-4a' : 36,
+            '143-4b' : 37,
+            '143-5'  : 38,
+            '143-6'  : 39,
+            '143-7'  : 40,
+            '143-8'  : 41,
+            '217-5a' : 42,
+            '217-5b' : 43,
+            '217-6a' : 44,
+            '217-6b' : 45,
+            '217-7a' : 46,
+            '217-7b' : 47,
+            '217-8a' : 48,
+            '217-8b' : 49,
+            '217-1'  : 50,
+            '217-2'  : 51,
+            '217-3'  : 52,
+            '217-4'  : 53,
+            '353-3a' : 54,
+            '353-3b' : 55,
+            '353-4a' : 56,
+            '353-4b' : 57,
+            '353-5a' : 58,
+            '353-5b' : 59,
+            '353-6a' : 60,
+            '353-6b' : 61,
+            '353-1'  : 62,
+            '353-2'  : 63,
+            '353-7'  : 64,
+            '353-8'  : 65,
+            '545-1'  : 66,
+            '545-2'  : 67,
+            '545-3'  : 68,
+            '545-4'  : 69,
+            '857-1'  : 70,
+            '857-2'  : 71,
+            '857-3'  : 72,
+            '857-4'  : 73
+            }
 
         self.config = {}
         if self.f.inst.name == 'LFI':
@@ -274,7 +350,6 @@ class ToastConfig(object):
 
     def add_streams(self):
         # Add streams for data components
-        rngstream = 0
         basename = "@rngbase@"
 
         self.strm = {}
@@ -284,6 +359,8 @@ class ToastConfig(object):
 
             # add simulated noise stream
             if ( self.noise_tod ):
+                rngstream = self.rngorder[ ch.tag ] * 100000
+
                 noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
                 self.pp_boundaries = PPBoundaries(self.f.freq)
                 self.strm["simnoise_" + ch.tag] = self.strset.stream_add( "simnoise_" + ch.tag, "native", Params( ) )
@@ -294,9 +371,8 @@ class ToastConfig(object):
                            "base" : basename,
                            "start" : pp_boundaries[0],
                            "stop" : pp_boundaries[1],
-                           "offset" : rngstream
+                           "offset" : rngstream + row
                     }))
-                    rngstream += 1
         
             # add real data stream, either for flags or data plus flags
             self.strm["raw_" + ch.tag] = self.strset.stream_add ( "raw_" + ch.tag, "native", Params() )
