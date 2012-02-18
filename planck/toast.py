@@ -52,7 +52,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -64,6 +64,7 @@ class ToastConfig(object):
             noise_tod: Add simulated noise TODs
             flag_HFI_bad_rings: if None, flagged just for HFI
             include_preFLS : if None, True for LFI
+            include_repointings : Construct intervals with the 4 minute repointing maneuvers: 10% dataset increase, continuous time stamps
 
             additional configuration options are available modifying:
             .config
@@ -81,6 +82,7 @@ class ToastConfig(object):
         self.f = self.channels[0].f
         self.output_xml = output_xml
         self.ptcorfile = ptcorfile
+        self.include_repointings = include_repointings
         self.noise_tod = noise_tod
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
         self.rngorder = {
@@ -279,7 +281,7 @@ class ToastConfig(object):
 
 
     def add_observations(self, telescope):
-        """Each observation is a OD as specified in the AHF files"""
+        """Each observation is an OD as specified in the AHF files"""
         # Add streamset
         self.strset = telescope.streamset_add ( self.f.inst.name, "native", Params() )
           
@@ -302,7 +304,7 @@ class ToastConfig(object):
         # Add observations
         self.tod_name_list = defaultdict(list) 
         self.tod_par_list = defaultdict(list) 
-        for observation in self.observations:  
+        for iobs, observation in enumerate(self.observations):
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
                 if self.remote_exchange_folder:
@@ -312,8 +314,27 @@ class ToastConfig(object):
             obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
             pointing_periods = observation.PP
-            for pp in pointing_periods:
-                obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
+            if self.include_repointings:
+                # First interval begins with the operational day, last one ends with it. New interval begins when the old stable pointing ends.
+                # First and last included samples remain the same.
+                for ipp, pp in enumerate(pointing_periods):
+                    if ipp == 0:
+                        # Remove the comments in this section to include period between OD and ring start
+                        #if iobs == 0:
+                        obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
+                        #else:
+                        #    obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":observation.start, "stop":pointing_periods[ipp+1].start}) )
+                    elif ipp == len(pointing_periods) - 1:
+                        if iobs == len(self.observations) - 1:
+                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
+                        else:
+                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":observation.stop}) )
+                    else:
+                        obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
+            else:
+                # Intervals are the stable pointing periods
+                for pp in pointing_periods:
+                    obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
                 print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
