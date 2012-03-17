@@ -138,3 +138,8 @@ def powerspectrum(s, Fs):
 
 def whitenoise(lenght):
     return np.random.standard_normal(size=lenght)
+
+def interp_floor(x, xp, fp):
+    i_interp = np.interp(x, xp, np.arange(len(fp)))
+    i_rounded = np.floor(i_interp).astype(np.int)
+    return fp[i_rounded]

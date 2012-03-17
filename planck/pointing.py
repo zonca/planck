@@ -25,7 +25,7 @@ class Pointing(object):
     '''
     comp =  ['X','Y','Z','S']
 
-    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0):
+    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0, ptcorfile=None):
         '''
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
@@ -50,9 +50,6 @@ class Pointing(object):
         for i,c in enumerate(self.comp):
             ahf_quat[:,i] = np.concatenate([h.read_column('QUATERNION_'+c) for h in AHF_data_iter])[i_start:i_end]
 
-        if coord == 'G':
-            ahf_quat = quaternion_ecl2gal(ahf_quat)
-
         #debug_here()
         if self.wobble:
            #ahf_quat = qarray.mult(ahf_quat, correction.wobble(ahf_obt,offset=wobble_offset))
@@ -63,6 +60,14 @@ class Pointing(object):
            #print(ahf_obt[17329])
            #34690:34705
            qarray.norm_inplace(ahf_quat)
+
+        if ptcorfile == True:
+            ptcorfile = private.ptcorfile
+        if ptcorfile:
+            ahf_quat = qarray.mult(ahf_quat, correction.ptcor(ahf_obt, ptcorfile))
+
+        if coord == 'G':
+            ahf_quat = quaternion_ecl2gal(ahf_quat)
 
         if interp is None:
             self.qsatgal_interp = ahf_quat 
@@ -184,6 +189,12 @@ class DiskPointing(Pointing):
         with pycfitsio.open(self.filename) as f:
             h = f[ch.tag]
             return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
+
+    def get_ang(self, ch):
+        l.debug('Reading %s' % self.filename)
+        with pycfitsio.open(self.filename) as f:
+            h = f[ch.tag]
+            return h.read_column('THETA'), h.read_column('PHI')
 
     def get(self, ch):
         import healpy

@@ -8,7 +8,9 @@ from dipole import SatelliteVelocity
 
 import quaternionarray as qarray
 import private
+import glob
 
+import utils
 from tabulate_corrections_calc import TabulatedAttitudeCorrections
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 
@@ -82,27 +84,31 @@ def ahf_wobble(obt):
 
 def get_ahf_wobble(obtx):
     """Read psi1 and psi2 file previously extracted from observation AHF files"""
-    filename = '/project/projectdirs/planck/user/seiffert/cal/WDX8/C070-0000-WDX8-20111116.fits'
+    filename = sorted(glob.glob('/project/projectdirs/planck/user/seiffert/cal/WDX8/*.fits'))[-1]
+    l.info(filename)
     with pycfitsio.open(filename) as fitsfile:
-        obt = fitsfile['OBT'].read_column(0)/2.**16
+        obt = fitsfile['OBT'].read_column(0)/2.**16 + 20 #shift forward of 20 seconds, so that the abrupt change in wobble angle is within the manouvre and does not impact the pointing between the last AHF quaternion and the manouvre
         psi1 = arcmin2rad(fitsfile['PSI_1'].read_column(0))
         psi2 = arcmin2rad(fitsfile['PSI_2'].read_column(0))
     i_interp = np.interp(obtx, obt, np.arange(len(obt)))
     i_rounded = np.floor(i_interp).astype(np.int)
     return psi1[i_rounded], psi2[i_rounded]
 
-def read_ptcor1(od):
-    data = np.loadtxt('/project/projectdirs/planck/user/zonca/software/testenv/testenv/private/tab_cor1.txt')
-    i = data[:, 0].searchsorted(od)
-    return data[i, 1], data[i, 2]
+def read_ptcor(obt, ptcorfile):
+    data = np.loadtxt(ptcorfile, delimiter=',')
+    i = data[:, 0].searchsorted(np.median(obt))
+    return data[i-1, 1], data[i-1, 2]
+    #return utils.interp_floor(obt, data[:,0], data[:,1]), utils.interp_floor(obt, data[:,0], data[:,2])
 
-def ptcor1(od):
+def ptcor(obt, ptcorfile):
     # Boresight rotation of 85 degrees
     # pio.GetQuaternion("IMO:SAT:SVM:StarTracker:RATT_LOS:Quaternion",imop).q
     # for detilt_ring_t2
-    q_str_LOS = np.array([ 0.99904822,  0.        ,  0.04361939,  0.        ])
+    #q_str_LOS = np.array([ 0.99904822,  0.        ,  0.04361939,  0.        ])
+    #q_str_LOS = np.array([ 0.9990482215818578,  0.        ,  0.043619387365336,  0.        ])
+    q_str_LOS = qarray.rotation(np.array([0,1,0]), np.radians(90-85))
 
-    delta_inscan, delta_xscan = read_ptcor1(od)
+    delta_inscan, delta_xscan = read_ptcor(obt, ptcorfile)
     zn = np.array([delta_xscan, -delta_inscan, 1])
     zn /= np.linalg.norm(zn) 
     #Compute rotation quaternion from vectos
