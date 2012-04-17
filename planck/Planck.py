@@ -89,6 +89,10 @@ class FrequencySet(ChannelBase):
             ch.f = self
         self.tag = '%d' % self.freq 
 
+    @property
+    def horns(self):
+        return group_by_horn(self.ch)
+
     def __repr__(self):
         return '%d GHz' % self.freq
 
