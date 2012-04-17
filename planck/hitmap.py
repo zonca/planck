@@ -70,15 +70,16 @@ def pix2map(pix, nside, tod=None):
     #TODO test case
     pix = pix.astype(np.int)
     ids = np.bincount(pix, weights=None)
-    hitmap = np.ones(healpy.nside2npix(nside)) * healpy.UNSEEN
-    hitmap[:len(ids)] = ids
+    npix = healpy.nside2npix(nside)
+    hitmap = np.ones(npix) * healpy.UNSEEN
+    hitmap[:len(ids[:npix])] = ids[:npix]
     hitmap = healpy.ma(hitmap)
     if tod is None:
         return hitmap
     else:
         ids_binned = np.bincount(pix, weights=tod)
-        binned = np.ones(healpy.nside2npix(nside)) * healpy.UNSEEN
-        binned[:len(ids_binned)] = ids_binned
+        binned = np.ones(npix) * healpy.UNSEEN
+        binned[:len(ids_binned[:npix])] = ids_binned[:npix] 
         binned = healpy.ma(binned)/hitmap
         return hitmap, binned
 
