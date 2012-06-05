@@ -72,7 +72,7 @@ class DataSelector(object):
         try:
             return self._obt_ranges
         except exceptions.AttributeError:
-            self._obt_ranges = map(get_obt_range_from_od, self.ods)
+            self._obt_ranges = [get_obt_range_from_od(od, self.config['database']) for od in self.ods]
             return self._obt_ranges
 
     def by_od_range(self, od_range):
@@ -104,6 +104,7 @@ class DataSelector(object):
         query = c.execute('select od from ahf_files where endOBT>=? and startOBT<=?', values)
         ods = [int(q[0]) for q in query]
         c.close()
+        assert len(ods) > 0, "Cannot find ODs for obt range " + str(obt_range)
         return ods
 
     def get_one_AHF(self, obt_range):
@@ -111,6 +112,7 @@ class DataSelector(object):
         files = [glob.glob(
             os.path.join(self.config['ahf_folder'], '%04d' % od, 'vel*')
             )[0] for od in ods]
+        assert len(files) > 0, "Cannot find AHF for obt range " + str(obt_range)
         return files
 
     def get_AHF(self):

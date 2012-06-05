@@ -6,7 +6,7 @@ import exceptions
 import glob
 
 import private
-from Planck import parse_channels
+from Planck import parse_channels, EXCLUDED_CH
 from metadata import DataSelector
 from collections import defaultdict
 
@@ -52,7 +52,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -62,17 +62,24 @@ class ToastConfig(object):
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
             noise_tod: Add simulated noise TODs
-            flag_HFI_bad_rings: if None, flagged just for HFI
+            flag_HFI_bad_rings: if None, flagged just for HFI. If a valid file, use that as input.
             include_preFLS : if None, True for LFI
             include_repointings : Construct intervals with the 4 minute repointing maneuvers: 10% dataset increase, continuous time stamps
+            psd : templated name of the ASCII PSD files. Tag CHANNEL will be replaced with the appropriate channel identifier.
+            deaberrate : Correct pointing for aberration
+            extend_857 : Whether or not to include the RTS bolometer, 857-4 in processing
+            no_wobble : Disable all flavors of wobble angle correction
 
             additional configuration options are available modifying:
             .config
             and Data Selector configuration:
-            .ds.config
+            .data_selector.config
             dictionaries before running .run()
         """
         l.root.level = log_level
+        self.extend_857 = extend_857
+        if self.extend_857:
+            if '857-4' in EXCLUDED_CH: EXCLUDED_CH.remove('857-4')
         self.odrange = odrange
         self.nside = nside
         self.coord = coord
@@ -82,7 +89,10 @@ class ToastConfig(object):
         self.f = self.channels[0].f
         self.output_xml = output_xml
         self.ptcorfile = ptcorfile
+        self.no_wobble = no_wobble
         self.include_repointings = include_repointings
+        self.psd = psd
+        self.deaberrate = deaberrate
         self.noise_tod = noise_tod
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
         self.rngorder = {
@@ -202,7 +212,10 @@ class ToastConfig(object):
             else:
                 flag_HFI_bad_rings = False
         if flag_HFI_bad_rings:
-            self.bad_rings = private.HFI_badrings
+            if ( os.path.isfile(str(flag_HFI_bad_rings)) ):
+                self.bad_rings = flag_HFI_bad_rings
+            else:
+                self.bad_rings = private.HFI_badrings
         else:
             self.bad_rings = None
 
@@ -227,20 +240,33 @@ class ToastConfig(object):
                 "units"  : "micro-K"
             }))
 
-        if self.f.inst.name == 'LFI':
-            wobble_offset = 0;
-        else:
-            wobble_offset = self.wobble["psi2_offset"]
+        #if self.f.inst.name == 'LFI':
+        #    wobble_offset = 0;
+        #else:
+        #    wobble_offset = self.wobble["psi2_offset"]
 
-        teleparams = {  
-                "wobblepsi2dir":self.wobble["psi2_dir"],
+        if self.no_wobble:
+            teleparams = {
+                "wobble_ahf_high":"FALSE",
+                "wobble_ahf_obs":"FALSE",
+                "wobblepsi2dir":""
+                }
+        else:
+            teleparams = {  
+                #"wobblepsi2dir":self.wobble["psi2_dir"],
                 "wobblepsi2_ref":self.wobble["psi2_ref"],
-                "wobblepsi1_ref":self.wobble["psi1_ref"],
-                "wobblepsi2_offset":wobble_offset
-            }
+                "wobblepsi1_ref":self.wobble["psi1_ref"]
+                #"wobblepsi2_offset":wobble_offset
+                }
 
         if self.ptcorfile:
             teleparams['ptcorfile'] = self.ptcorfile
+
+        if self.deaberrate != None:
+            if self.deaberrate:
+                teleparams['deaberrate'] = 'TRUE'
+            else:
+                teleparams['deaberrate'] = 'FALSE'
 
         tele = self.conf.telescope_add ( "planck", "planck", 
             Params(teleparams))
@@ -456,7 +482,10 @@ class ToastConfig(object):
                                 "detector": ch.tag
                 }))
             elif self.f.inst.name == "HFI":
-                psdname = private.hfi_psd + "detnoise_fit_" + ch.tag + ".psd"
+                if self.psd:
+                    psdname = self.psd.replace('CHANNEL', ch.tag)
+                else:
+                    psdname = private.hfi_psd + "detnoise_fit_" + ch.tag + ".psd"
                 noise.psd_add ( "psd", "ascii", Params({
                                 "start" : self.strset.observations()[0].start(),
                                 "stop" : self.strset.observations()[-1].stop(),
@@ -478,41 +507,41 @@ if __name__ == '__main__':
 
     # Default LFI run
 
-    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_default.xml')
+    conf = ToastConfig([740, 760], 30, nside=1024, ordering='RING', coord='E', efftype='R', output_xml='test_30_default.xml')
     conf.run()
 
-    # LFI run with noise simulation and real data flags
-    
-    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simnoise.xml', noise_tod=True)
-    conf.run()
-
-    # LFI real data run with calibration and dipole subtraction
-
-    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True)
-    conf.run()
-
-    # LFI noise simulation with real flags, calibration and dipole subtraction
-
-    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True, noise_tod=True)
-    conf.run()
-
-    # HFI default run
-
-    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_default.xml')
-    conf.run()
-
-    # HFI noise simulation
-
-    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simnoise.xml', noise_tod=True)
-    conf.run()
-
-    # HFI real data run with calibration and dipole subtraction
-
-    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True)
-    conf.run()
-
-    # HFI noise simulation with real flags, calibration and dipole subtraction
-
-    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True, noise_tod=True)
-    conf.run()
-
+#    # LFI run with noise simulation and real data flags
+#    
+    #conf = ToastConfig([450, 460], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simnoise.xml', noise_tod=True)
+    #conf.run()
+#
+#    # LFI real data run with calibration and dipole subtraction
+#
+#    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True)
+#    conf.run()
+#
+#    # LFI noise simulation with real flags, calibration and dipole subtraction
+#
+#    conf = ToastConfig([97, 101], 30, nside=1024, ordering='RING', coord='E', efftype='C', output_xml='test_30_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/lfi/369S/C030-0000-369S-20110713.fits', dipole_removal=True, noise_tod=True)
+#    conf.run()
+#
+#    # HFI default run
+#
+#    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_default.xml')
+#    conf.run()
+#
+#    # HFI noise simulation
+#
+#    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simnoise.xml', noise_tod=True)
+#    conf.run()
+#
+#    # HFI real data run with calibration and dipole subtraction
+#
+#    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_dical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True)
+#    conf.run()
+#
+#    # HFI noise simulation with real flags, calibration and dipole subtraction
+#
+#    conf = ToastConfig([97, 101], 100, nside=2048, ordering='NEST', coord='G', output_xml='test_100_simdical.xml', calibration_file='/project/projectdirs/planck/data/mission/calibration/dx7/hfi/variable_gains_100GHz.fits', dipole_removal=True, noise_tod=True)
+#    conf.run()
+#
