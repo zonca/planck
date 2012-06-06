@@ -55,7 +55,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5, horn_noise_tod=None, horn_noise_weight=None, horn_noise_psd=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -72,7 +72,10 @@ class ToastConfig(object):
             flag_HFI_bad_rings: if None, flagged just for HFI. If a valid file, use that as input.
             include_preFLS : if None, True for LFI
             include_repointings : Construct intervals with the 4 minute repointing maneuvers: 10% dataset increase, continuous time stamps
-            psd : templated name of the ASCII PSD files. Tag CHANNEL will be replaced with the appropriate channel identifier.
+            psd : templated name of an ASCII PSD files. Tag CHANNEL will be replaced with the appropriate channel identifier.
+            horn_noise_tod : False
+            horn_noise_weight : None
+            horn_noise_psd : templated name of an ASCII PSD files. Tag HORN will be replaced with the appropriate identifier.
             deaberrate : Correct pointing for aberration
             extend_857 : Whether or not to include the RTS bolometer, 857-4 in processing
             no_wobble : Disable all flavors of wobble angle correction
@@ -101,10 +104,15 @@ class ToastConfig(object):
         self.ptcorfile = ptcorfile
         self.no_wobble = no_wobble
         self.include_repointings = include_repointings
-        self.psd = psd
         self.deaberrate = deaberrate
         self.noise_tod = noise_tod
         self.noise_tod_weight = noise_tod_weight
+        self.psd = psd
+        self.horn_noise_tod = horn_noise_tod
+        self.horn_noise_weight = horn_noise_weight
+        self.horn_noise_psd = horn_noise_psd
+        if self.horn_noise_tod and not self.horn_noise_psd:
+            raise Exception('Must specify horn_noise_psd template name when enabling horn_noise')
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
         self.beamsky = beamsky
         self.beamsky_weight = beamsky_weight
@@ -183,7 +191,34 @@ class ToastConfig(object):
             '857-1'  : 70,
             '857-2'  : 71,
             '857-3'  : 72,
-            '857-4'  : 73
+            '857-4'  : 73,
+            'LFI18' : 74,
+            'LFI19' : 75,
+            'LFI20' : 76,
+            'LFI21' : 77,
+            'LFI22' : 78,
+            'LFI23' : 79,
+            'LFI24' : 80,
+            'LFI25' : 81,
+            'LFI26' : 82,
+            'LFI27' : 83,
+            'LFI28' : 84,
+            '100-1' : 85,
+            '100-2' : 86,
+            '100-3' : 87,
+            '100-4' : 88,
+            '143-1' : 89,
+            '143-2' : 90,
+            '143-3' : 91,
+            '143-4' : 92,
+            '217-5' : 93,
+            '217-6' : 94,
+            '217-7' : 95,
+            '217-8' : 96,
+            '353-3' : 97,
+            '353-4' : 98,
+            '353-5' : 99,
+            '353-6' : 100,
             }
 
         self.config = {}
@@ -260,7 +295,7 @@ class ToastConfig(object):
         """Call the python-toast bindings to create the xml configuration file"""
         self.conf = Run()
 
-        if ( self.noise_tod ):
+        if self.noise_tod or self.horn_noise_tod:
             self.conf.variable_add ( "rngbase", "native", Params({"default":"0"}) )
           
         sky = self.conf.sky_add ( "sky", "native", ParMap() )
@@ -452,7 +487,7 @@ class ToastConfig(object):
             stack_elements = []
 
             # add simulated noise stream
-            if ( self.noise_tod ):
+            if self.noise_tod:
                 rngstream = self.rngorder[ ch.tag ] * 100000
 
                 noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
@@ -466,6 +501,31 @@ class ToastConfig(object):
                     if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
                         continue
                     self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
+                           "noise" : noisename,
+                           "base" : basename,
+                           "start" : pp_boundaries[0],
+                           "stop" : pp_boundaries[1],
+                           "offset" : rngstream + row
+                    }))
+
+            # add simulated noise stream common to each horn
+            if self.horn_noise_tod and ch.tag[-1] in 'MSab':
+                horn = ch.tag[:-1]
+                rngstream = self.rngorder[ horn ] * 100000
+
+                noisename = "/planck/" + self.f.inst.name + "/noise_" + horn
+                self.pp_boundaries = PPBoundaries(self.f.freq)
+                self.strm["simnoise_" + horn] = self.strset.stream_add( "simnoise_" + horn, "native", Params( ) )
+                suffix = ''
+                if self.horn_noise_weight:
+                    suffix += ',PUSH:$' + strconv(self.horn_noise_weight) + ',MUL'
+                if len(stack_elements) != 0:
+                    suffix += ',ADD'
+                stack_elements.append( "PUSH:simnoise_" + horn + suffix)
+                for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+                    if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
+                        continue
+                    self.strm["simnoise_" + horn].tod_add ( "nse_%s_%05d" % (horn, row), "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
                            "start" : pp_boundaries[0],
@@ -554,21 +614,31 @@ class ToastConfig(object):
             # add PSD
             if self.f.inst.name == "LFI":
                 noise.psd_add ( "psd", "planck_rimo", Params({
-                                "start" : self.strset.observations()[0].start(),
-                                "stop" : self.strset.observations()[-1].stop(),
-                                "path": self.fpdb,
-                                "detector": ch.tag
-                }))
+                    "start" : self.strset.observations()[0].start(),
+                    "stop" : self.strset.observations()[-1].stop(),
+                    "path": self.fpdb,
+                    "detector": ch.tag
+                    }))
             elif self.f.inst.name == "HFI":
                 if self.psd:
                     psdname = self.psd.replace('CHANNEL', ch.tag)
                 else:
                     psdname = private.hfi_psd + "detnoise_fit_" + ch.tag + ".psd"
                 noise.psd_add ( "psd", "ascii", Params({
-                                "start" : self.strset.observations()[0].start(),
-                                "stop" : self.strset.observations()[-1].stop(),
-                                "path": psdname
-               }))
+                    "start" : self.strset.observations()[0].start(),
+                    "stop" : self.strset.observations()[-1].stop(),
+                    "path": psdname
+                    }))
+            # add horn noise psd
+            if self.horn_noise_tod and ch.tag[-1] in 'aM':
+                horn = ch.tag[:-1]
+                noise = self.strset.noise_add ( "noise_" + horn, "native", Params() )
+                psdname = self.horn_noise_psd.replace('HORN', horn)
+                noise.psd_add ( "psd", "ascii", Params({
+                    "start" : self.strset.observations()[0].start(),
+                    "stop" : self.strset.observations()[-1].stop(),
+                    "path": psdname
+                    }))
 
             
     def add_channels(self, telescope):
