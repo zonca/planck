@@ -13,7 +13,10 @@ from collections import defaultdict
 import logging as l
 from pytoast.core import Run, ParMap
 
+import pyfits
+
 l.basicConfig(level=l.INFO)
+
 
 class PPBoundaries:
     def __init__(self, freq):
@@ -52,16 +55,20 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False):
+    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
             channels: one of integer frequency, channel string, list of channel strings
             obtmask and flagmask: default LFI 1,255 HFI 1,1
+            exchange_folder: either a string or a container or strings listing locations for Exchange Format data
+            exchange_weights: list of scaling factors to apply to Exchange data prior to coadding
+            eff_is_for_flags : only use Exchange data for flags
             remote_exchange_folder, remote_ahf_folder: they allow to run toast.py in one environment using ahf_folder and exchange_folder and then replace the path with the remote folders
             calibration_file: path to a fits calibration file, with first extension OBT, then one extension per channel with the calibration factors
             dipole_removal: dipole removal is performed ONLY if calibration is specified
             noise_tod: Add simulated noise TODs
+            noise_tod_weight: scaling factor to apply to noise_tod
             flag_HFI_bad_rings: if None, flagged just for HFI. If a valid file, use that as input.
             include_preFLS : if None, True for LFI
             include_repointings : Construct intervals with the 4 minute repointing maneuvers: 10% dataset increase, continuous time stamps
@@ -69,6 +76,9 @@ class ToastConfig(object):
             deaberrate : Correct pointing for aberration
             extend_857 : Whether or not to include the RTS bolometer, 857-4 in processing
             no_wobble : Disable all flavors of wobble angle correction
+            beamsky : templated name of the beamsky files for OTF sky convolution. Tag CHANNEL will be replaced with the appropriate channel identifier.
+            beamsky_weight : scaling factor to apply to the beamsky
+            interp_order : beamsky interpolation order defines number of cartesian pixels to interpolate over
 
             additional configuration options are available modifying:
             .config
@@ -94,7 +104,11 @@ class ToastConfig(object):
         self.psd = psd
         self.deaberrate = deaberrate
         self.noise_tod = noise_tod
+        self.noise_tod_weight = noise_tod_weight
         self.fpdb = fpdb or private.rimo[self.f.inst.name]
+        self.beamsky = beamsky
+        self.beamsky_weight = beamsky_weight
+        self.interp_order = interp_order
         self.rngorder = {
             'LFI18M' : 0,
             'LFI18S' : 1,
@@ -183,17 +197,28 @@ class ToastConfig(object):
             if self.f.inst.name == 'LFI' and (not calibration_file is None):
                 efftype ='C'
         self.data_selector = DataSelector(channels=self.channels, efftype=efftype, include_preFLS=include_preFLS)
+
+        self.exchange_weights = exchange_weights
+
         if remote_exchange_folder:
+            if isinstance(remote_exchange_folder, str):
+                remote_exchange_folder = [remote_exchange_folder]
             if remote_exchange_folder[-1] != '/':
                 remote_exchange_folder += '/'
+
         self.remote_exchange_folder = remote_exchange_folder
         if remote_ahf_folder:
             if remote_ahf_folder[-1] != '/':
                 remote_ahf_folder += '/'
         self.remote_ahf_folder = remote_ahf_folder
-        if not exchange_folder is None:
-            self.data_selector.config['exchangefolder'] = exchange_folder
-        if not ahf_folder is None:
+        if exchange_folder:
+            if isinstance(exchange_folder, str):
+                exchange_folder = [exchange_folder]
+            self.exchange_folder = exchange_folder
+
+            self.data_selector.config[ 'exchangefolder' ] = exchange_folder[0]
+            
+        if ahf_folder:
             self.data_selector.config['ahf_folder'] = ahf_folder
         self.data_selector.by_od_range(self.odrange)
 
@@ -219,6 +244,17 @@ class ToastConfig(object):
         else:
             self.bad_rings = None
 
+        self.eff_is_for_flags = eff_is_for_flags
+
+        self.fptab = None
+
+    def parse_fpdb(self, channel, key):
+        if self.fptab == None:
+            fptab = pyfits.getdata(self.fpdb, 1)
+        ind = (fptab.field('DETECTOR') == channel).ravel()
+        if np.sum(ind) != 1:
+            raise Exception('Error matching {} in {}: {} matches.'.format(channel, self.fpdb, np.sum(ind)))
+        return fptab.field(key)[ind][0]
 
     def run(self, write=True):
         """Call the python-toast bindings to create the xml configuration file"""
@@ -327,14 +363,24 @@ class ToastConfig(object):
         # the "times1", "times2", "times3", etc parameters.
 
         broken_od = defaultdict(None)
+
+        # Observations are same for all datasets but now there may be
+        # several exchange folders and raw streams to add. Therefore
+        # tod_name_list and tod_par_list are lists of dictionaries.
+        
+        self.tod_name_list = []
+        self.tod_par_list = []
+        for i in range(len(self.exchange_folder)):
+            self.tod_name_list.append( defaultdict(list) )
+            self.tod_par_list.append( defaultdict(list) )
+            
         # Add observations
-        self.tod_name_list = defaultdict(list) 
-        self.tod_par_list = defaultdict(list) 
+
         for iobs, observation in enumerate(self.observations):
             params = {"start":observation.start, "stop":observation.stop}
             for i, eff in enumerate(observation.EFF):
                 if self.remote_exchange_folder:
-                    params[ "times%d" % (i+1) ] = eff.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
+                    params[ "times%d" % (i+1) ] = eff.replace(self.exchange_folder[0], self.remote_exchange_folder[0])
                 else:
                     params[ "times%d" % (i+1) ] = eff
             obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
@@ -364,35 +410,36 @@ class ToastConfig(object):
 
             for ch in self.channels:
                 print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
-                for i, file_path in enumerate(observation.EFF):
-                    eff_od = get_eff_od(file_path)
-                    # Add TODs for this stream
-                    params = {}
-                    params[ "flagmask" ] = self.flagmask
-                    params[ "obtmask" ] = self.obtmask
-                    params[ "hdu" ] = ch.eff_tag
-                    if self.config['pairflags']:
-                        params[ "pairflags" ] = 'TRUE'
-                    if self.remote_exchange_folder:
-                        params[ "path" ] = file_path.replace(self.data_selector.config['exchangefolder'], self.remote_exchange_folder)
-                    else:
-                        params[ "path" ] = file_path
-                    tag = ''
-                    if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
-                        params['rows'] = observation.break_startrow + 1
-                        tag = 'a'
-                        broken_od[ch.tag] = eff_od
-                    if not observation.break_stoprow is None and broken_od[ch.tag]==eff_od:
-                        params['startrow'] = observation.break_stoprow
-                        tag = 'b'
-                        broken_od[ch.tag] = None
-                    name = "%s_%d%s" % (ch.tag, eff_od, tag)
-                    if name not in self.tod_name_list[ch.tag]:
-                        print('add ' + name)
-                        self.tod_name_list[ch.tag].append(name)
-                        self.tod_par_list[ch.tag].append(params)
-                    else:
-                        print("skip " + name)
+                for ix, fx in enumerate(self.exchange_folder):
+                    for i, file_path in enumerate(observation.EFF):
+                        eff_od = get_eff_od(file_path)
+                        # Add TODs for this stream
+                        params = {}
+                        params[ "flagmask" ] = self.flagmask
+                        params[ "obtmask" ] = self.obtmask
+                        params[ "hdu" ] = ch.eff_tag
+                        if self.config['pairflags']:
+                            params[ "pairflags" ] = 'TRUE'
+                        if self.remote_exchange_folder:
+                            params[ "path" ] = file_path.replace(self.exchange_folder[0], self.remote_exchange_folder[ix])
+                        else:
+                            params[ "path" ] = file_path.replace(self.exchange_folder[0], self.exchange_folder[ix])
+                        tag = ''
+                        if i==(len(observation.EFF)-1) and not observation.break_startrow is None:
+                            params['rows'] = observation.break_startrow + 1
+                            tag = 'a'
+                            broken_od[ch.tag] = eff_od
+                        if not observation.break_stoprow is None and broken_od[ch.tag]==eff_od:
+                            params['startrow'] = observation.break_stoprow
+                            tag = 'b'
+                            broken_od[ch.tag] = None
+                        name = "%s_%d%s" % (ch.tag, eff_od, tag)
+                        if name not in self.tod_name_list[ix][ch.tag]:
+                            print('add ' + name)
+                            self.tod_name_list[ix][ch.tag].append(name)
+                            self.tod_par_list[ix][ch.tag].append(params)
+                        else:
+                            print("skip " + name)
 
 
     def add_streams(self):
@@ -411,8 +458,13 @@ class ToastConfig(object):
                 noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
                 self.pp_boundaries = PPBoundaries(self.f.freq)
                 self.strm["simnoise_" + ch.tag] = self.strset.stream_add( "simnoise_" + ch.tag, "native", Params( ) )
-                stack_elements.append( "PUSH:simnoise_" + ch.tag )
+                suffix = ''
+                if self.noise_tod_weight:
+                    suffix += ',PUSH:$' + strconv(self.noise_tod_weight) + ',MUL'
+                stack_elements.append( "PUSH:simnoise_" + ch.tag + suffix)
                 for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+                    if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
+                        continue
                     self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
                            "noise" : noisename,
                            "base" : basename,
@@ -420,13 +472,38 @@ class ToastConfig(object):
                            "stop" : pp_boundaries[1],
                            "offset" : rngstream + row
                     }))
-        
-            # add real data stream, either for flags or data plus flags
-            self.strm["raw_" + ch.tag] = self.strset.stream_add ( "raw_" + ch.tag, "native", Params() )
-            if ( self.noise_tod ):
-                stack_elements.append( "PUSH:raw_" + ch.tag + ",FLG" )
-            else:
-                stack_elements.append( "PUSH:raw_" + ch.tag )
+
+            # add the beam sky
+            if self.beamsky:
+                epsilon = self.parse_fpdb(ch.tag, 'epsilon')
+                #beamskyname = '/planck/' + self.f.inst.name + '/' + ch.tag
+                beamskyname = '/planck/' + ch.tag
+                self.strm["beamsky_" + ch.tag] = self.strset.stream_add( "beamsky_" + ch.tag, "planck_beamsky", Params({
+                    'path' : self.beamsky.replace('CHANNEL', ch.tag),
+                    'epsilon' : str(epsilon),
+                    'interp_order' : str(self.interp_order),
+                    'coord' : self.coord,
+                    'channel' : beamskyname
+                    }) )
+                suffix = ''
+                if self.beamsky_weight:
+                    suffix += ',PUSH:$' + strconv(self.beamsky_weight) + ',MUL'
+                if len(stack_elements) != 0:
+                    suffix += ',ADD'
+                stack_elements.append( "PUSH:beamsky_" + ch.tag + suffix)
+
+            # add real data streams, either for flags or data plus flags
+            for i, x in enumerate(self.exchange_folder):
+                self.strm[ 'raw{}_{}'.format(i, ch.tag) ] = self.strset.stream_add( "raw{}_{}".format(i, ch.tag), "native", Params() )
+                if self.eff_is_for_flags:
+                    suffix = ',FLG'
+                else:
+                    suffix = ''
+                    if self.exchange_weights:
+                        suffix = ',PUSH:$' + strconv(self.exchange_weights[i]) + ',MUL'
+                    if len(stack_elements) != 0:
+                        suffix += ',ADD'
+                stack_elements.append( "PUSH:raw{}_{}{}".format(i, ch.tag, suffix) )
 
             # add calibration stream
             if (not self.calibration_file is None):
@@ -450,21 +527,22 @@ class ToastConfig(object):
 
     def add_eff_tods(self):
         """Add TOD files already included in tod_name_list and tod_par_list to the streamset"""
-        # remove duplicate files on breaks
-        for ch in self.channels:
-            for name in [n for n in self.tod_name_list[ch.tag] if n.endswith('a')]:
-                try:
-                    delindex = self.tod_name_list[ch.tag].index(name.rstrip('a'))
-                    print('Removing %s because of breaks' % self.tod_name_list[ch.tag][delindex])
-                    del self.tod_name_list[ch.tag][delindex]
-                    del self.tod_par_list[ch.tag][delindex]
-                except exceptions.ValueError:
-                    pass
-    
-        # add EFF to stream
-        for ch in self.channels:
-            for name, par in zip(self.tod_name_list[ch.tag], self.tod_par_list[ch.tag]):
-                self.strm["raw_" + ch.tag].tod_add ( name, "planck_exchange", Params(par) )
+        for ix in range(len(self.exchange_folder)):
+            # remove duplicate files on breaks
+            for ch in self.channels:
+                for name in [n for n in self.tod_name_list[ix][ch.tag] if n.endswith('a')]:
+                    try:
+                        delindex = self.tod_name_list[ix][ch.tag].index(name.rstrip('a'))
+                        print('Removing %s because of breaks' % self.tod_name_list[ix][ch.tag][delindex])
+                        del self.tod_name_list[ix][ch.tag][delindex]
+                        del self.tod_par_list[ix][ch.tag][delindex]
+                    except exceptions.ValueError:
+                        pass
+
+            # add EFF to stream
+            for ch in self.channels:
+                for name, par in zip(self.tod_name_list[ix][ch.tag], self.tod_par_list[ix][ch.tag]):
+                    self.strm[ "raw{}_{}".format(ix, ch.tag) ].tod_add ( name, "planck_exchange", Params(par) )
 
 
     def add_noise(self):
