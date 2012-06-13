@@ -55,10 +55,12 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange, channels, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5, horn_noise_tod=None, horn_noise_weight=None, horn_noise_psd=None):
+    def __init__(self, odrange=None, channels=None, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5, horn_noise_tod=None, horn_noise_weight=None, horn_noise_psd=None, observation_is_interval=False, lfi_ring_range=None, hfi_ring_range=None):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
+            lfi_ring_range: first and last LFI pointing ID to include
+            hfi_ring_range: first and last HFI ring number to include
             channels: one of integer frequency, channel string, list of channel strings
             obtmask and flagmask: default LFI 1,255 HFI 1,1
             exchange_folder: either a string or a container or strings listing locations for Exchange Format data
@@ -82,6 +84,7 @@ class ToastConfig(object):
             beamsky : templated name of the beamsky files for OTF sky convolution. Tag CHANNEL will be replaced with the appropriate channel identifier.
             beamsky_weight : scaling factor to apply to the beamsky
             interp_order : beamsky interpolation order defines number of cartesian pixels to interpolate over
+            observation_is_interval : If True, do not split operational days into pointing period intervals
 
             additional configuration options are available modifying:
             .config
@@ -93,11 +96,17 @@ class ToastConfig(object):
         self.extend_857 = extend_857
         if self.extend_857:
             if '857-4' in EXCLUDED_CH: EXCLUDED_CH.remove('857-4')
+        if sum([odrange!=None, lfi_ring_range!=None, hfi_ring_range!=None]) != 1:
+            raise Exception('Must specify exactly one type of data span: OD, LFI PID or HFI ring')
         self.odrange = odrange
+        self.lfi_ring_range = lfi_ring_range
+        self.hfi_ring_range = hfi_ring_range
         self.nside = nside
         self.coord = coord
         self.ordering = ordering
         self.outmap = outmap
+        if channels == None:
+            raise Exception('Must define which channels to include')
         self.channels = parse_channels(channels)
         self.f = self.channels[0].f
         self.output_xml = output_xml
@@ -117,6 +126,7 @@ class ToastConfig(object):
         self.beamsky = beamsky
         self.beamsky_weight = beamsky_weight
         self.interp_order = interp_order
+        self.observation_is_interval = observation_is_interval
         self.rngorder = {
             'LFI18M' : 0,
             'LFI18S' : 1,
@@ -255,7 +265,16 @@ class ToastConfig(object):
             
         if ahf_folder:
             self.data_selector.config['ahf_folder'] = ahf_folder
-        self.data_selector.by_od_range(self.odrange)
+
+        if self.odrange:
+            self.data_selector.by_od_range(self.odrange)
+        elif self.lfi_ring_range:
+            self.data_selector.by_lfi_rings(self.lfi_ring_range)
+        elif self.hfi_ring_range:
+            self.data_selector.by_hfi_rings(self.hfi_ring_range)
+        else:
+            raise Exception('Must specify one type of data span')
+        
 
         self.wobble = private.WOBBLE
         self.components = components
@@ -420,28 +439,32 @@ class ToastConfig(object):
                     params[ "times%d" % (i+1) ] = eff
             obs = self.strset.observation_add ( "%04d%s" % (observation.od, observation.tag) , "planck_exchange", Params(params) )
 
-            pointing_periods = observation.PP
-            if self.include_repointings:
-                # First interval begins with the operational day, last one ends with it. New interval begins when the old stable pointing ends.
-                # First and last included samples remain the same.
-                for ipp, pp in enumerate(pointing_periods):
-                    if ipp == 0:
-                        # Remove the comments in this section to include period between OD and ring start
-                        #if iobs == 0:
-                        obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
-                        #else:
-                        #    obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":observation.start, "stop":pointing_periods[ipp+1].start}) )
-                    elif ipp == len(pointing_periods) - 1:
-                        if iobs == len(self.observations) - 1:
-                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
-                        else:
-                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":observation.stop}) )
-                    else:
-                        obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
+            if self.observation_is_interval:
+                # intervals are observations
+                obs.interval_add( '{:04}'.format(iobs), "native", Params({"start":observation.start, "stop":observation.stop}) )
             else:
-                # Intervals are the stable pointing periods
-                for pp in pointing_periods:
-                    obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
+                pointing_periods = observation.PP
+                if self.include_repointings:
+                    # First interval begins with the operational day, last one ends with it. New interval begins when the old stable pointing ends.
+                    # First and last included samples remain the same.
+                    for ipp, pp in enumerate(pointing_periods):
+                        if ipp == 0:
+                            # Remove the comments in this section to include period between OD and ring start
+                            #if iobs == 0:
+                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
+                            #else:
+                            #    obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":observation.start, "stop":pointing_periods[ipp+1].start}) )
+                        elif ipp == len(pointing_periods) - 1:
+                            if iobs == len(self.observations) - 1:
+                                obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
+                            else:
+                                obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":observation.stop}) )
+                        else:
+                            obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pointing_periods[ipp+1].start}) )
+                else:
+                    # Intervals are the stable pointing periods
+                    for pp in pointing_periods:
+                        obs.interval_add( "%05d-%d" % (pp.number, pp.splitnumber), "native", Params({"start":pp.start, "stop":pp.stop}) )
 
             for ch in self.channels:
                 print("Observation %d%s, EFF ODs:%s" % (observation.od, observation.tag, str(map(get_eff_od, observation.EFF))))
@@ -491,22 +514,34 @@ class ToastConfig(object):
                 rngstream = self.rngorder[ ch.tag ] * 100000
 
                 noisename = "/planck/" + self.f.inst.name + "/noise_" + ch.tag
-                self.pp_boundaries = PPBoundaries(self.f.freq)
                 self.strm["simnoise_" + ch.tag] = self.strset.stream_add( "simnoise_" + ch.tag, "native", Params( ) )
                 suffix = ''
                 if self.noise_tod_weight:
                     suffix += ',PUSH:$' + strconv(self.noise_tod_weight) + ',MUL'
                 stack_elements.append( "PUSH:simnoise_" + ch.tag + suffix)
-                for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
-                    if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
-                        continue
-                    self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
-                           "noise" : noisename,
-                           "base" : basename,
-                           "start" : pp_boundaries[0],
-                           "stop" : pp_boundaries[1],
-                           "offset" : rngstream + row
-                    }))
+                if self.observation_is_interval:
+                    # one noise tod per observation
+                    for iobs, observation in enumerate(self.observations):
+                        self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, iobs), "sim_noise", Params({
+                               "noise" : noisename,
+                               "base" : basename,
+                               "start" : observation.start,
+                               "stop" : observation.stop,
+                               "offset" : rngstream + iobs
+                        }))                        
+                else:
+                    # one noise tod per pointing period
+                    self.pp_boundaries = PPBoundaries(self.f.freq)
+                    for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+                        if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
+                            continue
+                        self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, row), "sim_noise", Params({
+                               "noise" : noisename,
+                               "base" : basename,
+                               "start" : pp_boundaries[0],
+                               "stop" : pp_boundaries[1],
+                               "offset" : rngstream + row
+                        }))
 
             # add simulated noise stream common to each horn
             if self.horn_noise_tod and ch.tag[-1] in 'MSab':
@@ -514,7 +549,6 @@ class ToastConfig(object):
                 rngstream = self.rngorder[ horn ] * 100000
 
                 noisename = "/planck/" + self.f.inst.name + "/noise_" + horn
-                self.pp_boundaries = PPBoundaries(self.f.freq)
                 self.strm["simnoise_" + horn] = self.strset.stream_add( "simnoise_" + horn, "native", Params( ) )
                 suffix = ''
                 if self.horn_noise_weight:
@@ -522,16 +556,29 @@ class ToastConfig(object):
                 if len(stack_elements) != 0:
                     suffix += ',ADD'
                 stack_elements.append( "PUSH:simnoise_" + horn + suffix)
-                for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
-                    if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
-                        continue
-                    self.strm["simnoise_" + horn].tod_add ( "nse_%s_%05d" % (horn, row), "sim_noise", Params({
-                           "noise" : noisename,
-                           "base" : basename,
-                           "start" : pp_boundaries[0],
-                           "stop" : pp_boundaries[1],
-                           "offset" : rngstream + row
-                    }))
+                if self.observation_is_interval:
+                    # one noise tod per observation
+                    for iobs, observation in enumerate(self.observations):
+                        self.strm["simnoise_" + horn].tod_add ( "nse_%s_%05d" % (horn, iobs), "sim_noise", Params({
+                               "noise" : noisename,
+                               "base" : basename,
+                               "start" : observation.start,
+                               "stop" : observation.stop,
+                               "offset" : rngstream + iobs
+                        }))                        
+                else:
+                    # one noise tod per pointing period
+                    self.pp_boundaries = PPBoundaries(self.f.freq)
+                    for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
+                        if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
+                            continue
+                        self.strm["simnoise_" + horn].tod_add ( "nse_%s_%05d" % (horn, row), "sim_noise", Params({
+                               "noise" : noisename,
+                               "base" : basename,
+                               "start" : pp_boundaries[0],
+                               "stop" : pp_boundaries[1],
+                               "offset" : rngstream + row
+                        }))
 
             # add the beam sky
             if self.beamsky:

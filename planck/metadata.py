@@ -27,6 +27,16 @@ def obt2od(obt, freq=30):
     c.close()
     return od
 
+def pid2od(pid):
+    """Find the operational day a given LFI pointing ID is"""
+    conn = sqlite3.connect(private.database)
+    c = conn.cursor()
+    query = c.execute(
+        'select od from list_ahf_infos where pointID_unique glob "{}-*" or pointID_unique like "{}"'.format(pid, pid) )
+    od = query.fetchone()[0]
+    return od
+
+
 class DataSelector(object):
     """Planck data selector
     channels can be integer frequency, list of channel names (same frequency) or a single channel name string
@@ -55,6 +65,7 @@ class DataSelector(object):
         self.config['ahf_folder'] = private.AHF
         self.config['exclude_454_455'] = True
         self.efftype = efftype
+        self.ring_range = None
 
     @property
     def ods(self):
@@ -76,7 +87,7 @@ class DataSelector(object):
             return self._obt_ranges
 
     def by_od_range(self, od_range):
-        """ods is a list of start and stop OD (INCLUDED)"""
+        """ods is a list of start and stop OD (INCLUSIVE)"""
         self.od_range = od_range
         self._ods = range(od_range[0], od_range[1]+1)
         if self.config['exclude_454_455'] and self.f.inst.name == 'LFI':
@@ -84,18 +95,24 @@ class DataSelector(object):
                 try:
                     self._ods.remove(OD)
                 except:
-                    pass
-    
+                    pass    
 
     def by_obt(self, obt_ranges):
         """obt_ranges is a list of 2 element lists (or tuple) with start-stop obt"""
         raise exceptions.NotImplementedError()
         self._obt_ranges = obt_ranges
 
-    def by_rings(self, rings):
-        """rings is a list of ring numbers"""
-        #FIXME LFI or HFI?
-        raise exceptions.NotImplementedError()
+    def by_lfi_rings(self, rings):
+        """rings is an inclusive list of lfi ring numbers"""
+        odstart = pid2od(rings[0])
+        odstop = pid2od(rings[1])
+        self.by_od_range([odstart, odstop])
+        self.ring_range = rings
+
+    def by_hfi_rings(self, rings):
+        """rings is an inclusive list of hfi ring numbers"""
+        lfirings = [rings[0]-237, rings[1]-237]
+        self.by_lfi_rings(lfirings)
 
     def get_AHF_ods(self, obt_range):
         conn = sqlite3.connect(self.config['database'])
@@ -172,6 +189,10 @@ class DataSelector(object):
         PP = []
         for q in query:
             pid_numbers= map(int, q[0].split('-'))
+            if self.ring_range != None:
+                # Check if the Pointing ID is within a specified ring range
+                if pid_numbers[0] < self.ring_range[0]: continue
+                if pid_numbers[0] > self.ring_range[1]: continue
             if len(pid_numbers) == 1:
                 pid_numbers.append(0)
             PP.append( Period(pid_numbers[0],q[1]/2.**16,q[2]/2.**16, pid_numbers[1]) )
