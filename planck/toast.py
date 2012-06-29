@@ -659,22 +659,19 @@ class ToastConfig(object):
             noise = self.strset.noise_add ( "noise_" + ch.tag, "native", Params() )
 
             # add PSD
-            if self.f.inst.name == "LFI":
+            if self.psd:                
+                psdname = self.psd.replace('CHANNEL', ch.tag)
+                noise.psd_add ( "psd", "ascii", Params({
+                    "start" : self.strset.observations()[0].start(),
+                    "stop" : self.strset.observations()[-1].stop(),
+                    "path": psdname
+                    }))
+            else:
                 noise.psd_add ( "psd", "planck_rimo", Params({
                     "start" : self.strset.observations()[0].start(),
                     "stop" : self.strset.observations()[-1].stop(),
                     "path": self.fpdb,
                     "detector": ch.tag
-                    }))
-            elif self.f.inst.name == "HFI":
-                if self.psd:
-                    psdname = self.psd.replace('CHANNEL', ch.tag)
-                else:
-                    psdname = private.hfi_psd + "detnoise_fit_" + ch.tag + ".psd"
-                noise.psd_add ( "psd", "ascii", Params({
-                    "start" : self.strset.observations()[0].start(),
-                    "stop" : self.strset.observations()[-1].stop(),
-                    "path": psdname
                     }))
             # add horn noise psd
             if self.horn_noise_tod and ch.tag[-1] in 'aM':

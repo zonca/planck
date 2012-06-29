@@ -27,13 +27,16 @@ def obt2od(obt, freq=30):
     c.close()
     return od
 
-def pid2od(pid):
+def pid2od(pid, db):
     """Find the operational day a given LFI pointing ID is"""
-    conn = sqlite3.connect(private.database)
+    conn = sqlite3.connect(db)
     c = conn.cursor()
     query = c.execute(
         'select od from list_ahf_infos where pointID_unique glob "{}-*" or pointID_unique like "{}"'.format(pid, pid) )
-    od = query.fetchone()[0]
+    first_od = query.fetchone()
+    if first_od == None:
+        raise Exception('ERROR: could not find any OD in {} with the LFI PID {}'. format(db, pid))
+    od = first_od[0]
     return od
 
 
@@ -104,8 +107,8 @@ class DataSelector(object):
 
     def by_lfi_rings(self, rings):
         """rings is an inclusive list of lfi ring numbers"""
-        odstart = pid2od(rings[0])
-        odstop = pid2od(rings[1])
+        odstart = pid2od(rings[0], self.config['database'])
+        odstop = pid2od(rings[1], self.config['database'])
         self.by_od_range([odstart, odstop])
         self.ring_range = rings
 
