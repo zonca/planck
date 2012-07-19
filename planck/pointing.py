@@ -131,7 +131,7 @@ class Pointing(object):
         return np.array([np.dot(invsiam , row) for row in vec_rad])
 
     def compute_psi(self, theta, phi, rad):
-        minusy = np.dot(self.siam.get(rad),[0, -1, 0])
+        minusy = np.dot(self.siam.get(rad),[0, 1, 0])
         vecz = qarray.norm(qarray.rotate(self.qsatgal_interp, minusy))
         e_phi = np.hstack([-np.sin(phi)[:,np.newaxis], np.cos(phi)[:,np.newaxis], np.zeros([len(phi),1])])
         e_theta = np.hstack([(np.cos(theta)*np.cos(phi))[:,np.newaxis], (np.cos(theta)*np.sin(phi))[:,np.newaxis], -np.sin(theta)[:,np.newaxis]])

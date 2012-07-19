@@ -11,7 +11,7 @@ import private
 import glob
 
 import utils
-from tabulate_corrections_calc import TabulatedAttitudeCorrections
+#from tabulate_corrections_calc import TabulatedAttitudeCorrections
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 
 def arcmin2rad(ang):
@@ -87,9 +87,12 @@ def get_ahf_wobble(obtx):
     filename = sorted(glob.glob('/project/projectdirs/planck/user/seiffert/cal/WDX8/*.fits'))[-1]
     l.info(filename)
     with pycfitsio.open(filename) as fitsfile:
-        obt = fitsfile['OBT'].read_column(0)/2.**16 #+ 20 #shift forward of 20 seconds, so that the abrupt change in wobble angle is within the manouvre and does not impact the pointing between the last AHF quaternion and the manouvre
+        obt = fitsfile['OBT'].read_column(0)/2.**16 + 20 #shift forward of 20 seconds, so that the abrupt change in wobble angle is within the manouvre and does not impact the pointing between the last AHF quaternion and the manouvre
         psi1 = arcmin2rad(fitsfile['PSI_1'].read_column(0))
         psi2 = arcmin2rad(fitsfile['PSI_2'].read_column(0))
+        # reproduce dpc dx9
+        #psi1[1:] = psi1[0:-1]
+        #psi2[1:] = psi2[0:-1]
     i_interp = np.interp(obtx, obt, np.arange(len(obt)))
     i_rounded = np.floor(i_interp).astype(np.int)
     return psi1[i_rounded], psi2[i_rounded]
