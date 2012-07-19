@@ -41,8 +41,9 @@ def smooth(m, arcmin, lmax = None):
     config.write()
     if os.path.exists('tempmap_smoothed.fits'):
         os.remove('tempmap_smoothed.fits')
-    callstring = 'smoothing --double %s' % config_filename
-    subprocess.call(callstring, shell=True)
+    callstring = ['smoothing','--double',config_filename]
+    with open(os.devnull, 'w') as fnull:
+        subprocess.call(callstring, shell=False,stdout=fnull,stderr=None)
     smoothed_m = healpy.read_map('tempmap_smoothed.fits')
     smoothed_m[unseen] = healpy.UNSEEN
     return smoothed_m

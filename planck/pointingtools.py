@@ -31,7 +31,6 @@ class Siam(object):
         self.horn_pointing = horn_pointing
         if siamfile is None:
             siamfile = private.siam
-        l.debug('using SIAM %s' % siamfile)
         f = open(siamfile)
         lines = f.readlines()
         self.siam = {}
@@ -41,6 +40,7 @@ class Siam(object):
             self.siam[chtag] = m
     def get(self, ch):
         if ch.inst.name == 'HFI':
+            l.debug('using SIAM %s' % siamfile)
             return self.siam[ch.tag].T
         else:
             l.warning('For LFI using instrument DB angles')

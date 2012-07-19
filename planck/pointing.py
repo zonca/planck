@@ -131,6 +131,14 @@ class Pointing(object):
         return np.array([np.dot(invsiam , row) for row in vec_rad])
 
     def compute_psi(self, theta, phi, rad):
+        minusy = np.dot(self.siam.get(rad),[0, -1, 0])
+        vecz = qarray.norm(qarray.rotate(self.qsatgal_interp, minusy))
+        e_phi = np.hstack([-np.sin(phi)[:,np.newaxis], np.cos(phi)[:,np.newaxis], np.zeros([len(phi),1])])
+        e_theta = np.hstack([(np.cos(theta)*np.cos(phi))[:,np.newaxis], (np.cos(theta)*np.sin(phi))[:,np.newaxis], -np.sin(theta)[:,np.newaxis]])
+        psi = np.arctan2(-qarray.arraylist_dot(vecz, e_phi), -qarray.arraylist_dot(vecz, e_theta))
+        return psi.flatten()
+
+    def compute_psi_dx8(self, theta, phi, rad):
         z = np.dot(self.siam.get(rad),[0, 0, 1])
         vecz = qarray.norm(qarray.rotate(self.qsatgal_interp, z))
         e_phi = np.hstack([-np.sin(phi)[:,np.newaxis], np.cos(phi)[:,np.newaxis], np.zeros([len(phi),1])])
@@ -149,7 +157,6 @@ class Pointing(object):
         l.info('Rotating to detector %s' % rad)
         theta, phi = self.get_ang(rad)
         psi = self.compute_psi(theta, phi, rad)
-        #psi = np.arcsin(-qarray.arraylist_dot(vecz, e_phi))
         l.info('Rotated to detector %s' % rad)
         return theta, phi, psi
 
