@@ -55,7 +55,7 @@ DEFAULT_FLAGMASK = {'LFI':255, 'HFI':1}
 class ToastConfig(object):
     """Toast configuration class"""
 
-    def __init__(self, odrange=None, channels=None, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5, horn_noise_tod=None, horn_noise_weight=None, horn_noise_psd=None, observation_is_interval=False, lfi_ring_range=None, hfi_ring_range=None):
+    def __init__(self, odrange=None, channels=None, nside=1024, ordering='RING', coord='E', outmap='outmap.fits', exchange_folder=None, fpdb=None, output_xml='toastrun.xml', ahf_folder=None, components='IQU', obtmask=None, flagmask=None, log_level=l.INFO, remote_exchange_folder=None, remote_ahf_folder=None, calibration_file=None, dipole_removal=False, noise_tod=False, noise_tod_weight=None, efftype=None, flag_HFI_bad_rings=None, include_preFLS=False, ptcorfile=None, include_repointings=False, psd=None, deaberrate=True, extend_857=False, no_wobble=False, eff_is_for_flags=False, exchange_weights=None, beamsky=None, beamsky_weight=None, interp_order=5, horn_noise_tod=None, horn_noise_weight=None, horn_noise_psd=None, observation_is_interval=False, lfi_ring_range=None, hfi_ring_range=None, wobble_high=False):
         """TOAST configuration:
 
             odrange: list of start and end OD, AHF ODS, i.e. with whole pointing periods as the DPC is using
@@ -81,6 +81,7 @@ class ToastConfig(object):
             deaberrate : Correct pointing for aberration
             extend_857 : Whether or not to include the RTS bolometer, 857-4 in processing
             no_wobble : Disable all flavors of wobble angle correction
+            wobble_high : Use 8Hz wobble correction rather than per ring
             beamsky : templated name of the beamsky files for OTF sky convolution. Tag CHANNEL will be replaced with the appropriate channel identifier.
             beamsky_weight : scaling factor to apply to the beamsky
             interp_order : beamsky interpolation order defines number of cartesian pixels to interpolate over
@@ -111,7 +112,10 @@ class ToastConfig(object):
         self.f = self.channels[0].f
         self.output_xml = output_xml
         self.ptcorfile = ptcorfile
+        if no_wobble and wobble_high:
+            raise Exception('no_wobble and wobble_high are mutually exclusive')
         self.no_wobble = no_wobble
+        self.wobble_high = wobble_high
         self.include_repointings = include_repointings
         self.deaberrate = deaberrate
         self.noise_tod = noise_tod
@@ -342,10 +346,19 @@ class ToastConfig(object):
                 "wobblepsi2dir":""
                 }
         else:
+            if self.wobble_high:
+                wobble_obs = 'FALSE'
+                wobble_high = 'TRUE'
+            else:
+                wobble_obs = 'TRUE'
+                wobble_high = 'FALSE'
+            
             teleparams = {  
                 #"wobblepsi2dir":self.wobble["psi2_dir"],
                 "wobblepsi2_ref":self.wobble["psi2_ref"],
-                "wobblepsi1_ref":self.wobble["psi1_ref"]
+                "wobblepsi1_ref":self.wobble["psi1_ref"],
+                "wobble_ahf_obs":wobble_obs,
+                "wobble_ahf_high":wobble_high
                 #"wobblepsi2_offset":wobble_offset
                 }
 
