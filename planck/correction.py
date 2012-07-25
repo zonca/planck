@@ -84,7 +84,7 @@ def ahf_wobble(obt):
 
 def get_ahf_wobble(obtx):
     """Read psi1 and psi2 file previously extracted from observation AHF files"""
-    filename = sorted(glob.glob('/project/projectdirs/planck/user/seiffert/cal/WDX8/*.fits'))[-1]
+    filename = sorted(glob.glob('/project/projectdirs/planck/user/seiffert/cal/WDX9/*.fits'))[-1]
     l.info(filename)
     with pycfitsio.open(filename) as fitsfile:
         obt = fitsfile['OBT'].read_column(0)/2.**16 + 20 #shift forward of 20 seconds, so that the abrupt change in wobble angle is within the manouvre and does not impact the pointing between the last AHF quaternion and the manouvre

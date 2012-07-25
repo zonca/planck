@@ -76,6 +76,7 @@ class SiamAngles(object):
         total = qarray.mult(mat_spin2boresight, qarray.mult(mat_theta_phi, mat_psi))
         # siam is defined as pointing to Z axis
         return np.dot(qarray.to_rotmat(total[0]), np.array([[0,0,1],[0,1,0],[1,0,0]]))
+        #return qarray.to_rotmat(total[0])
 
 class SiamForcedAngles(SiamAngles):
 
