@@ -120,12 +120,12 @@ class Detector(Planck.ChannelBase):
     def cdstag(self):
         return 'RCA%s%s%s' % (self.ch.RCA,self.ch.n, self.n)
 
-    def get_adc_response(self):
-        """Returns sky and ref splines of response"""
-        import scipy.interpolate.fitpack as fit
-        sys.modules['__main__'].LFI_response = LFI_response
-        try:
-            resp = cPickle.load(open(os.path.join(private.ADC['folder'], "%s_LFI_response.pic" % self.cdstag.lower())))
-        except exceptions.IOError:
-            l.warning('NO ADC response for %s' % self.tag)
-        return fit.splrep(resp.sky_volt_out,resp.sky_volt_in,s=0.0),  fit.splrep(resp.load_volt_out,resp.load_volt_in,s=0.0)
+    #def get_adc_response(self):
+    #    """Returns sky and ref splines of response"""
+    #    import scipy.interpolate.fitpack as fit
+    #    sys.modules['__main__'].LFI_response = LFI_response
+    #    try:
+    #        resp = cPickle.load(open(os.path.join(private.ADC['folder'], "%s_LFI_response.pic" % self.cdstag.lower())))
+    #    except exceptions.IOError:
+    #        l.warning('NO ADC response for %s' % self.tag)
+    #    return fit.splrep(resp.sky_volt_out,resp.sky_volt_in,s=0.0),  fit.splrep(resp.load_volt_out,resp.load_volt_in,s=0.0)

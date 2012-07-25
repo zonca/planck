@@ -16,6 +16,18 @@ import private
 from pointingtools import *
 import exceptions
 
+SPIN2BORESIGHT = np.radians(85.0)
+
+def angles2siam(theta, phi, psi):
+    mat_spin2boresight=qarray.rotation([0,1,0], np.pi/2-SPIN2BORESIGHT)
+
+    mat_theta_phi = qarray.rotation([-math.sin(phi),math.cos(phi),0], theta)
+    mat_psi = qarray.rotation([0,0,1], psi)
+    # detector points to X axis
+    total = qarray.mult(mat_spin2boresight, qarray.mult(mat_theta_phi, mat_psi))
+    # siam is defined as pointing to Z axis
+    return np.dot(qarray.to_rotmat(total[0]), np.array([[0,0,1],[0,1,0],[1,0,0]]))
+
 try:
     import pysqlite2.dbapi2 as sqlite3
 except:
@@ -48,7 +60,6 @@ class Siam(object):
 
 class SiamAngles(object):
 
-    SPIN2BORESIGHT = np.radians(85.0)
     
     def __init__(self, horn_pointing):
         self.horn_pointing = horn_pointing
@@ -66,17 +77,7 @@ class SiamAngles(object):
         return theta, phi, psi
 
     def get(self, ch):
-        mat_spin2boresight=qarray.rotation([0,1,0], np.pi/2-self.SPIN2BORESIGHT)
-        theta, phi, psi = self.get_angles(ch)
-        #debug_here()
-
-        mat_theta_phi = qarray.rotation([-math.sin(phi),math.cos(phi),0], theta)
-        mat_psi = qarray.rotation([0,0,1], psi)
-        # detector points to X axis
-        total = qarray.mult(mat_spin2boresight, qarray.mult(mat_theta_phi, mat_psi))
-        # siam is defined as pointing to Z axis
-        return np.dot(qarray.to_rotmat(total[0]), np.array([[0,0,1],[0,1,0],[1,0,0]]))
-        #return qarray.to_rotmat(total[0])
+        return angles2siam(*self.get_angles(ch))
 
 class SiamForcedAngles(SiamAngles):
 

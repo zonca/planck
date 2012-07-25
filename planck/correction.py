@@ -2,7 +2,10 @@ import logging as l
 import pycfitsio
 import numpy as np
 
-import scipy.constants as physcon
+class DummyClass:
+    pass
+physcon = DummyClass()
+physcon.c = 2.997924580000e+08
 
 from dipole import SatelliteVelocity
 

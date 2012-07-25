@@ -13,6 +13,30 @@ from pointingtools import *
 import pycfitsio
 import correction
 import glob
+import os
+
+class IDBSiam:
+    def __init__(self, instrument_db, obt, Pxx=False):
+        if instrument_db is None:
+            instrument_db = private.instrument_db
+        if isinstance(instrument_db, list):
+            instrument_db = instrument_db[obt.mean() > 1667477889.4692688] # first stamp of OD 539
+        l.warning("Using IDB: " + os.path.basename(instrument_db))
+        self.uv_angles = {}
+        for row in np.array(pyfits.open(instrument_db)[1].data):
+            radtag = row["Radiometer"].strip()
+            self.uv_angles[radtag] = {}
+            for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
+                self.uv_angles[radtag][fi]=np.radians(row[fi])
+            if Pxx:
+                self.uv_angles[radtag]["psi_uv"]=0
+                self.uv_angles[radtag]["psi_pol"]=0
+
+    def get(self, ch):
+        return angles2siam(self.uv_angles[ch.tag]["theta_uv"],
+                           self.uv_angles[ch.tag]["phi_uv"],
+                           self.uv_angles[ch.tag]["psi_uv"] +
+                           self.uv_angles[ch.tag]["psi_pol"])
 
 class Pointing(object):
     '''Pointing interpolation and rotation class
@@ -25,11 +49,12 @@ class Pointing(object):
     '''
     comp =  ['X','Y','Z','S']
 
-    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0, ptcorfile=None):
+    def __init__(self,obt,coord='G', horn_pointing=False, deaberration=True, wobble=True, interp='slerp', siamfile=None, wobble_offset=0, ptcorfile=None, Pxx=False, instrument_db=None):
         '''
         nointerp to use the AHF OBT stamps'''
         l.warning('Pointing setup, coord:%s, deab:%s, wobble:%s' % (coord, deaberration, wobble))
         #get ahf limits
+        self.Pxx = Pxx
         self.deaberration = deaberration
         self.wobble = wobble
 
@@ -83,7 +108,7 @@ class Pointing(object):
         #    qarray.norm_inplace(self.qsatgal_interp)
 
         l.info('Quaternions interpolated')
-        self.siam = Siam(horn_pointing, siamfile=siamfile)
+        self.siam = IDBSiam(instrument_db, obt, self.Pxx)
 
         self.obt = obt
         self.coord = coord
@@ -131,8 +156,12 @@ class Pointing(object):
         return np.array([np.dot(invsiam , row) for row in vec_rad])
 
     def compute_psi(self, theta, phi, rad):
-        psi = self.compute_psi_dx8(theta, phi, rad) + np.pi
+        psi = self.compute_psi_dx8(theta, phi, rad)
+        psi += np.pi
         psi[psi > np.pi] -= 2*np.pi
+        if self.Pxx:
+            psi -= np.pi/2
+            psi[psi < - np.pi] += 2*np.pi
         return psi
 
     def compute_psi_dx8(self, theta, phi, rad):
