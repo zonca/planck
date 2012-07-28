@@ -45,6 +45,10 @@ class Channel(ChannelBase):
         self.inst = inst
 
     @property
+    def num(self):
+        return self.f.ch.index(self)
+
+    @property
     def arm(self):
         return self.tag[-1]
 

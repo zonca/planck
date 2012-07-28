@@ -38,7 +38,8 @@ class HFI(Planck.Instrument):
     Channel = HFIChannel
 
     def load_cal(self):
-        self.cal = np.loadtxt(private.HFI_calibfile,dtype=[('ch','S8'),('cal',np.double)])
+        if not private.HFI_calibfile is None:
+            self.cal = np.loadtxt(private.HFI_calibfile,dtype=[('ch','S8'),('cal',np.double)])
     
     def __init__(self, name = 'HFI', rimo =private.rimo['HFI']):
         super(HFI, self).__init__(name,rimo)
