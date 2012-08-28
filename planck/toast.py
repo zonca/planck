@@ -21,9 +21,27 @@ l.basicConfig(level=l.INFO)
 class PPBoundaries:
     def __init__(self, freq):
         """Load the start and stop OBT timestamps extracted from exchange format files"""
-        ppfile = '/project/projectdirs/planck/data/mission/rings_dx7/70_minute_max/ts_%03d_short-70m.txt' % freq
-        print('Loading ' + ppfile)
-        self.ppf = np.loadtxt(ppfile)
+        dbfile = self.data_selector.config['database']
+
+        conn = sqlite3.connect( dbfile )
+        c = conn.cursor()
+
+        self.ppf = []
+
+        tabname = 'ring_times_hfi'
+
+        if ( freq == 30 ):
+            tabname = 'ring_times_lfi30'
+        if ( freq == 44 ):
+            tabname = 'ring_times_lfi44'
+        if ( freq == 70 ):
+            tabname = 'ring_times_lfi70'
+
+        query = c.execute( 'select id, pointID_unique, start, stop from ?', (tabname) )
+        for id, pointID_unique, start, stop in query:
+            self.ppf += [ ( start, stop ) ]
+
+        c.close()
 
     def get(self, PID):
         # LFI PID 3 is row 1
