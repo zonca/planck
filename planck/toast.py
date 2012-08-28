@@ -4,6 +4,7 @@ import copy
 import os
 import exceptions
 import glob
+import sqlite3
 
 import private
 from Planck import parse_channels, EXCLUDED_CH
@@ -19,9 +20,9 @@ l.basicConfig(level=l.INFO)
 
 
 class PPBoundaries:
-    def __init__(self, freq):
+    def __init__(self, freq, dbfile):
         """Load the start and stop OBT timestamps extracted from exchange format files"""
-        dbfile = self.data_selector.config['database']
+        self.dbfile = dbfile
 
         conn = sqlite3.connect( dbfile )
         c = conn.cursor()
@@ -37,7 +38,8 @@ class PPBoundaries:
         if ( freq == 70 ):
             tabname = 'ring_times_lfi70'
 
-        query = c.execute( 'select id, pointID_unique, start, stop from ?', (tabname) )
+        execstr = "select id, pointID_unique, start, stop from %s" % ( tabname )
+        query = c.execute( execstr )
         for id, pointID_unique, start, stop in query:
             self.ppf += [ ( start, stop ) ]
 
@@ -551,7 +553,14 @@ class ToastConfig(object):
                     suffix += ',PUSH:$' + strconv(self.noise_tod_weight) + ',MUL'
                 stack_elements.append( "PUSH:simnoise_" + ch.tag + suffix)
                 if self.observation_is_interval:
-                    # one noise tod per observation
+                    # one noise tod per observation.
+                    #
+                    # FIXME: this code will not work.  the start and stop times
+                    #    must be the *detector* start and stop times inside
+                    #    the observation boundaries (which are set by the AHF).
+                    #    so you must iterate over self.pp_boundaries and find
+                    #    the first and last valid detector times inside this observation.
+                    #
                     for iobs, observation in enumerate(self.observations):
                         self.strm["simnoise_" + ch.tag].tod_add ( "nse_%s_%05d" % (ch.tag, iobs), "sim_noise", Params({
                                "noise" : noisename,
@@ -562,7 +571,7 @@ class ToastConfig(object):
                         }))                        
                 else:
                     # one noise tod per pointing period
-                    self.pp_boundaries = PPBoundaries(self.f.freq)
+                    self.pp_boundaries = PPBoundaries(self.f.freq, self.data_selector.config['database'])
                     for row, pp_boundaries in enumerate(self.pp_boundaries.ppf):
                         if pp_boundaries[1] < self.observations[0].start or pp_boundaries[0] > self.observations[-1].stop:
                             continue
