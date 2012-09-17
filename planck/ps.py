@@ -38,6 +38,7 @@ def smooth(m, arcmin, lmax = None):
     config['infile'] = 'tempmap.fits' 
     config['outfile'] = 'tempmap_smoothed.fits'
     config['fwhm_arcmin'] = arcmin
+    config['iter_order'] = 3
     config.write()
     if os.path.exists('tempmap_smoothed.fits'):
         os.remove('tempmap_smoothed.fits')

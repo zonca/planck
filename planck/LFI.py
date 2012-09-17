@@ -49,7 +49,10 @@ class LFIChannel(Planck.Channel):
         return self.get_instrument_db_field('net_KCMB')
 
     def get_instrument_db_field(self, field): 
-        return self.inst.instrument_db(self)[field][0]
+        try:
+            return self.inst.instrument_db(self)[field][0]
+        except exceptions.ValueError: 
+            return self.inst.instrument_db(self)[field.upper()][0]
 
     def __getitem__(self, n):
         return self.d[n]
@@ -98,9 +101,14 @@ class LFI(Planck.Instrument):
     def instrument_db(self,ch):
         if not hasattr(self,'_instrument_db') or self._instrument_db is None:
             import pyfits
+            if isinstance(self.instrument_db_file, list):
+                self.instrument_db_file = self.instrument_db_file[0]
             self._instrument_db = np.array(pyfits.open(self.instrument_db_file,ignore_missing_end=True)[1].data)
             l.warning('Loading instrumentdb %s' % self.instrument_db_file)
-        det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['Radiometer']])
+        try:
+            det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['Radiometer']])
+        except exceptions.ValueError:
+            det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['DETECTOR']])
         return self._instrument_db[det_index]
 
     @property

@@ -14,6 +14,7 @@ import pycfitsio
 import correction
 import glob
 import os
+import exceptions
 
 class IDBSiam:
     def __init__(self, instrument_db, obt, Pxx=False):
@@ -24,10 +25,16 @@ class IDBSiam:
         l.warning("Using IDB: " + os.path.basename(instrument_db))
         self.uv_angles = {}
         for row in np.array(pyfits.open(instrument_db)[1].data):
-            radtag = row["Radiometer"].strip()
+            try:
+                radtag = row["Radiometer"].strip()
+            except exceptions.IndexError:
+                radtag = row["DETECTOR"].strip()
             self.uv_angles[radtag] = {}
             for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
-                self.uv_angles[radtag][fi]=np.radians(row[fi])
+                try:
+                    self.uv_angles[radtag][fi]=np.radians(row[fi])
+                except exceptions.IndexError:
+                    self.uv_angles[radtag][fi]=np.radians(row[fi.upper()])
             if Pxx:
                 self.uv_angles[radtag]["psi_uv"]=0
                 self.uv_angles[radtag]["psi_pol"]=0
