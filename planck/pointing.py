@@ -236,6 +236,11 @@ class DiskPointing(Pointing):
             h = f[ch.tag]
             return h.read_column('THETA'), h.read_column('PHI')
 
+    def get_pix(self, rad, nside=1024, nest=True):
+        from healpy import ang2pix
+        theta, phi = self.get_ang(rad)
+        return ang2pix(nside, theta, phi, nest)
+
     def get(self, ch):
         import healpy
         theta, phi, psi = self.get_3ang(ch)
