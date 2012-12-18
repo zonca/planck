@@ -131,9 +131,38 @@ def approxod2obt(od):
 def obt2approxod(obt):
     return utc2approxod(obt2utc(obt))
 
-def powerspectrum(s, Fs):
+
+def nps(s, Fs=1, nfft=None, minfreq=None):
+    """Normalized power spectrum
+
+    Parameters
+    ----------
+    s :  array
+         signal timeline
+    Fs : float  
+         sampling frequency
+    nfft : int
+         if set, NFFT of mlab.psd is not computed from minfreq
+    minfreq : float
+         target minimum frequency of the power spectrum,
+         if None, all timeline is used
+
+    Returns
+    -------
+    freqs : array
+            frequency array
+    Pxx : power spectrum
+    """
+
     import matplotlib.pyplot as plt
-    Pxx, freqs = plt.mlab.psd(s, NFFT=len(s), Fs = Fs)
+    if nfft is None:
+        if minfreq is None:
+            nfft=len(s)
+            nfft=2**(np.int(np.log2(nfft)))
+        else:
+            nfft=min(len(s),np.int(2.*Fs/minfreq))
+            nfft=2**(int(np.log2(nfft)))
+    Pxx, freqs = plt.mlab.psd(s, NFFT=nfft, Fs = Fs)
     return freqs, Pxx
 
 def whitenoise(lenght):
