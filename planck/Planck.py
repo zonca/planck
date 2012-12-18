@@ -84,6 +84,14 @@ class Channel(ChannelBase):
         elif m_b == 1:
             return private.BEAM[component][self.tag][2]
 
+    def get_gaussian_beam(self, lmax=1024, pol=False):
+        import healpy as hp
+        beam = hp.gauss_beam(
+            np.radians(self.get_instrument_db_field("FWHM")/60.),
+            lmax, pol)
+        # TODO beam efficiency?
+        return beam
+        
 class FrequencySet(ChannelBase):
     def __init__(self, freq, ch, inst=None):
         self.freq = freq
