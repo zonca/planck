@@ -3,6 +3,7 @@ import numpy as np
 from exceptions import KeyError
 import itertools
 import operator
+import collections
 
 def group_by_horn(chlist):
     return itertools.groupby(chlist, operator.attrgetter('horn'))
@@ -84,12 +85,19 @@ class Channel(ChannelBase):
         elif m_b == 1:
             return private.BEAM[component][self.tag][2]
 
-    def get_gaussian_beam(self, lmax=1024, pol=False):
+    def get_gaussian_beam(self, lmax=1024, pol=False, beam_eff=False):
+        """Equivalent gaussian beam from RIMO FWHM
+
+        Returns the transfer function of a gaussian beam until lmax,
+        either polarized or not"""
         import healpy as hp
         beam = hp.gauss_beam(
             np.radians(self.get_instrument_db_field("FWHM")/60.),
             lmax, pol)
-        # TODO beam efficiency?
+
+        if beam_eff:
+            import private
+            beam *= private.beam_efficiency[self.tag] / 100.
         return beam
         
 class FrequencySet(ChannelBase):
@@ -100,6 +108,7 @@ class FrequencySet(ChannelBase):
         for ch in self.ch:
             ch.f = self
         self.tag = '%d' % self.freq 
+        self.f = self
 
     @property
     def horns(self):
@@ -141,7 +150,7 @@ class Instrument(object):
 
     def create_frequency_sets(self):
         freqs = [self.freq_from_tag(ch.tag) for ch in self.ch]
-        f = {}
+        f = collections.OrderedDict() 
         for freq in set(freqs):
             chlist = [self.ch[i] for i,chfreq in enumerate(freqs) if chfreq == freq]
             f[freq] = self.FrequencySet(freq, chlist, self)
@@ -150,11 +159,9 @@ class Instrument(object):
     def __getitem__(self, key):
         return self.chdict[key]
         
-    
 import LFI
 import HFI
 import private
-
 
 class Planck(object):
     '''Planck class, gives an iterator .ch for all LFI and HFI channels'''
