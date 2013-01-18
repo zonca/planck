@@ -151,7 +151,7 @@ class Instrument(object):
     def create_frequency_sets(self):
         freqs = [self.freq_from_tag(ch.tag) for ch in self.ch]
         f = collections.OrderedDict() 
-        for freq in set(freqs):
+        for freq in sorted(set(freqs)):
             chlist = [self.ch[i] for i,chfreq in enumerate(freqs) if chfreq == freq]
             f[freq] = self.FrequencySet(freq, chlist, self)
         return f
