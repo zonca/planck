@@ -96,9 +96,13 @@ class Channel(ChannelBase):
             lmax, pol)
 
         if beam_eff:
-            import private
-            beam *= private.beam_efficiency[self.tag] / 100.
+            beam *= self.beam_efficiency
         return beam
+
+    @property
+    def beam_efficiency(self):
+        import private
+        return private.beam_efficiency[self.tag] / 100.
         
 class FrequencySet(ChannelBase):
     def __init__(self, freq, ch, inst=None):
@@ -124,6 +128,10 @@ class FrequencySet(ChannelBase):
     @property
     def wn(self):
         return np.mean([ch.wn for ch in self.ch])
+
+    @property
+    def beam_efficiency(self):
+        return np.mean([ch.beam_efficiency for ch in self.ch])
 
 def freq2inst(freq):
     return ['LFI','HFI'][freq>=100]
