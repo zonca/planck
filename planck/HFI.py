@@ -37,14 +37,14 @@ class HFI(Planck.Instrument):
 
     Channel = HFIChannel
 
+    def __init__(self, name = 'HFI', rimo = private.rimo['HFI'], instrument_db = private.instrument_db):
+        super(HFI, self).__init__(name,rimo)
+        self.instrument_db_file = rimo
+
     def load_cal(self):
         if not private.HFI_calibfile is None:
             self.cal = np.loadtxt(private.HFI_calibfile,dtype=[('ch','S8'),('cal',np.double)])
     
-    def __init__(self, name = 'HFI', rimo =private.rimo['HFI']):
-        super(HFI, self).__init__(name,rimo)
-        self.load_cal()
-
     @staticmethod
     def freq_from_tag(tag):
         return int(tag[:3])

@@ -1,9 +1,11 @@
 import pyfits
+import logging as l
 import numpy as np
 from exceptions import KeyError
 import itertools
 import operator
 import collections
+import exceptions
 
 def group_by_horn(chlist):
     return itertools.groupby(chlist, operator.attrgetter('horn'))
@@ -36,6 +38,18 @@ class ChannelBase(object):
 
     def __repr__(self):
         return self.tag
+
+    def get_gaussian_beam(self, lmax=1024, pol=False, beam_eff=False):
+        """Equivalent gaussian beam from RIMO FWHM
+
+        Returns the transfer function of a gaussian beam until lmax,
+        either polarized or not"""
+        import healpy as hp
+        beam = hp.gauss_beam( self.fwhm, lmax, pol) 
+
+        if beam_eff:
+            beam *= self.beam_efficiency
+        return beam
 
 class Channel(ChannelBase):
     '''Abstract channel class for LFI and HFI channels'''
@@ -85,24 +99,26 @@ class Channel(ChannelBase):
         elif m_b == 1:
             return private.BEAM[component][self.tag][2]
 
-    def get_gaussian_beam(self, lmax=1024, pol=False, beam_eff=False):
-        """Equivalent gaussian beam from RIMO FWHM
-
-        Returns the transfer function of a gaussian beam until lmax,
-        either polarized or not"""
-        import healpy as hp
-        beam = hp.gauss_beam(
-            np.radians(self.get_instrument_db_field("FWHM")/60.),
-            lmax, pol)
-
-        if beam_eff:
-            beam *= self.beam_efficiency
-        return beam
+    @property
+    def fwhm(self):
+        fwhm = self.get_instrument_db_field("FWHM")
+        l.info("Channel %s: FWHM %.2f arcmin" % (self.tag, fwhm))
+        return np.radians(fwhm/60.),
 
     @property
     def beam_efficiency(self):
         import private
-        return private.beam_efficiency[self.tag] / 100.
+        try:
+            return private.beam_efficiency[self.tag] / 100.
+        except exceptions.KeyError:
+            l.warning("Missing beam efficiency for channel %s" % self.tag)
+            return 1.
+
+    def get_instrument_db_field(self, field): 
+        try:
+            return self.inst.instrument_db(self)[field][0]
+        except exceptions.ValueError: 
+            return self.inst.instrument_db(self)[field.upper()][0]
         
 class FrequencySet(ChannelBase):
     def __init__(self, freq, ch, inst=None):
@@ -125,13 +141,12 @@ class FrequencySet(ChannelBase):
     def sampling_freq(self):
         return self.ch[0].sampling_freq
 
-    @property
-    def wn(self):
-        return np.mean([ch.wn for ch in self.ch])
+    def get_aggregated_property(self, name):
+        name_attrgetter = operator.attrgetter(name)
+        return np.mean([name_attrgetter(ch) for ch in self.ch])
 
-    @property
-    def beam_efficiency(self):
-        return np.mean([ch.beam_efficiency for ch in self.ch])
+    def __getattr__(self, name):
+        return self.get_aggregated_property(name)
 
 def freq2inst(freq):
     return ['LFI','HFI'][freq>=100]
@@ -163,6 +178,19 @@ class Instrument(object):
             chlist = [self.ch[i] for i,chfreq in enumerate(freqs) if chfreq == freq]
             f[freq] = self.FrequencySet(freq, chlist, self)
         return f
+        
+    def instrument_db(self,ch):
+        if not hasattr(self,'_instrument_db') or self._instrument_db is None:
+            import pyfits
+            if isinstance(self.instrument_db_file, list):
+                self.instrument_db_file = self.instrument_db_file[0]
+            self._instrument_db = np.array(pyfits.open(self.instrument_db_file,ignore_missing_end=True)[1].data)
+            l.warning('Loading instrumentdb %s' % self.instrument_db_file)
+        try:
+            det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['Radiometer']])
+        except exceptions.ValueError:
+            det_index, = np.where([rad.strip().endswith(ch.tag) for rad in self._instrument_db['DETECTOR']])
+        return self._instrument_db[det_index]
             
     def __getitem__(self, key):
         return self.chdict[key]
