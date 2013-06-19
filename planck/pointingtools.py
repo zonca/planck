@@ -50,9 +50,10 @@ class Siam(object):
             chtag = line[0].split()[0]
             m = np.array(np.matrix(';'.join(line[1:])))
             self.siam[chtag] = m
+        self.siamfile = siamfile
     def get(self, ch):
         if ch.inst.name == 'HFI':
-            l.debug('using SIAM %s' % siamfile)
+            l.debug('using SIAM %s' % self.siamfile)
             return self.siam[ch.tag].T
         else:
             l.warning('For LFI using instrument DB angles')
@@ -91,7 +92,7 @@ class SiamForcedAngles(SiamAngles):
 
 def AHF_btw_OBT(obt):
 
-    conn = sqlite3.connect('/project/projectdirs/planck/user/zonca/remix/database.db')
+    conn = sqlite3.connect(private.database)
     c = conn.cursor()
     values = ((obt[0]-60*5)*2**16, (obt[-1]+60*5)*2**16)
     query = c.execute('select file_path from ahf_files where endOBT>=? and startOBT<=?', values)

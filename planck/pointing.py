@@ -2,42 +2,49 @@ from __future__ import division
 
 import logging as l 
 import numpy as np
-from LFI import LFI
 #from IPython.Debugger import Tracer; debug_here = Tracer()
-import re
 import quaternionarray as qarray
-from utils import grouper
 import Planck
 import private
-from pointingtools import *
+import pyfits
+from pointingtools import angles2siam, quaternion_ecl2gal, AHF_btw_OBT
 import pycfitsio
 import correction
 import glob
 import os
 import exceptions
 
+def compute_pol_weigths(psi):
+    spsi = np.sin(psi)
+    cpsi = np.cos(psi)
+    cf = 1./(cpsi**2 + spsi**2)
+    return (cpsi**2 - spsi**2)*cf, 2*cpsi*spsi*cf
+
 class IDBSiam:
     def __init__(self, instrument_db, obt, Pxx=False):
         if instrument_db is None:
             instrument_db = private.instrument_db
-        if isinstance(instrument_db, list):
-            instrument_db = instrument_db[obt.mean() > 1667477889.4692688] # first stamp of OD 539
-        l.warning("Using IDB: " + os.path.basename(instrument_db))
+        #if isinstance(instrument_db, list):
+        #    instrument_db = instrument_db[obt.mean() > 1667477889.4692688] # first stamp of OD 539
+        l.warning("Using IDB: " + str(map(os.path.basename, instrument_db)))
         self.uv_angles = {}
-        for row in np.array(pyfits.open(instrument_db)[1].data):
-            try:
-                radtag = row["Radiometer"].strip()
-            except exceptions.IndexError:
-                radtag = row["DETECTOR"].strip()
-            self.uv_angles[radtag] = {}
-            for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
+        for instrument_db_one in instrument_db.itervalues():
+            idb_file = pyfits.open(instrument_db_one)
+            for row in np.array(idb_file[1].data):
                 try:
-                    self.uv_angles[radtag][fi]=np.radians(row[fi])
+                    radtag = row["Radiometer"].strip()
                 except exceptions.IndexError:
-                    self.uv_angles[radtag][fi]=np.radians(row[fi.upper()])
-            if Pxx:
-                self.uv_angles[radtag]["psi_uv"]=0
-                self.uv_angles[radtag]["psi_pol"]=0
+                    radtag = row["DETECTOR"].strip()
+                self.uv_angles[radtag] = {}
+                for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
+                    try:
+                        self.uv_angles[radtag][fi]=np.radians(row[fi])
+                    except exceptions.IndexError:
+                        self.uv_angles[radtag][fi]=np.radians(row[fi.upper()])
+                if Pxx:
+                    self.uv_angles[radtag]["psi_uv"]=0
+                    self.uv_angles[radtag]["psi_pol"]=0
+            idb_file.close()
 
     def get(self, ch):
         return angles2siam(self.uv_angles[ch.tag]["theta_uv"],
@@ -199,10 +206,8 @@ class Pointing(object):
         theta, phi = vec2ang(vec)
         psi = self.compute_psi(theta, phi, rad)
         #return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), np.cos(2*psi), np.sin(2*psi)
-        spsi = np.sin(psi)
-        cpsi = np.cos(psi)
-        cf = 1./(cpsi**2 + spsi**2)
-        return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), (cpsi**2 - spsi**2)*cf, 2*cpsi*spsi*cf
+        cos2psi, sin2psi = compute_pol_weigths(psi)
+        return vec2pix(nside, vec[:,0], vec[:,1], vec[:,2], nest), cos2psi, sin2psi
 
     def get_pix(self, rad, nside=1024, nest=True):
         from healpy import vec2pix
@@ -240,6 +245,11 @@ class DiskPointing(Pointing):
         from healpy import ang2pix
         theta, phi = self.get_ang(rad)
         return ang2pix(nside, theta, phi, nest)
+
+    def get_pix_psi(self, rad, nside=1024, nest=True):
+        from healpy import ang2pix
+        theta, phi, psi = self.get_3ang(rad)
+        return ang2pix(nside, theta, phi, nest), psi
 
     def get(self, ch):
         import healpy

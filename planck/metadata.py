@@ -1,10 +1,12 @@
 import exceptions
-import glob
+from glob import glob
 import os
 import sqlite3
-import exceptions
 import logging as l
+import pyfits
+import numpy as np
 from collections import namedtuple
+import sys
 
 from Planck import parse_channels, freq2inst
 
@@ -16,6 +18,18 @@ except exceptions.ImportError:
 
 Period = namedtuple('Period', ['number','start','stop','splitnumber'])
 Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
+
+def get_g0(ch):
+    cal = "DDX9S"
+    if ch.f.freq == 30: cal = "DDX9DVV"
+    filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (cal, ch.f.freq)))[-1]
+    with pyfits.open(filename) as calfile: 
+
+        g0 = np.mean(calfile[ch.tag].data[ch.tag][
+                            (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
+                            (calfile["PID"].data["PID"] < private.survey[5].PID_LFI[1])
+                                                 ])
+    return g0
 
 def obt2od(obt, freq=30):
     """Get precise OD from obt stamp2"""
@@ -129,7 +143,7 @@ class DataSelector(object):
 
     def get_one_AHF(self, obt_range):
         ods = self.get_AHF_ods(obt_range)
-        files = [glob.glob(
+        files = [glob(
             os.path.join(self.config['ahf_folder'], '%04d' % od, 'vel*')
             )[0] for od in ods]
         assert len(files) > 0, "Cannot find AHF for obt range " + str(obt_range)
@@ -273,7 +287,7 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
     if isinstance(ods, int):
         ods = [ods]
         single = True
-    if glob.glob(exchangefolder + '/*.fits'):
+    if glob(exchangefolder + '/*.fits'):
         ods = [0]
     if type == 'K':
         type = ''
@@ -283,7 +297,7 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         if od:
             pattern = os.path.join('%04d' % od, pattern)
         l.debug('Exchange format: %s' % (os.path.join(exchangefolder, pattern)))
-        allversions = glob.glob(os.path.join(exchangefolder, pattern))
+        allversions = glob(os.path.join(exchangefolder, pattern))
         if not allversions:
             error_message = 'Cannot find file from pattern: %s' % os.path.join(exchangefolder, pattern)
             l.error(error_message)
