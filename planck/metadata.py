@@ -25,7 +25,7 @@ def get_g0(ch):
     filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (cal, ch.f.freq)))[-1]
     with pyfits.open(filename) as calfile: 
 
-        g0 = np.mean(calfile[ch.tag].data[ch.tag][
+        g0 = np.mean(calfile[ch.tag].data.field(0)[
                             (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
                             (calfile["PID"].data["PID"] < private.survey[5].PID_LFI[1])
                                                  ])
