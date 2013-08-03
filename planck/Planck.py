@@ -184,6 +184,8 @@ class Instrument(object):
             import pyfits
             if isinstance(self.instrument_db_file, list):
                 self.instrument_db_file = self.instrument_db_file[0]
+            if isinstance(self.instrument_db_file, dict):
+                self.instrument_db_file = self.instrument_db_file[self.name]
             self._instrument_db = np.array(pyfits.open(self.instrument_db_file,ignore_missing_end=True)[1].data)
             l.warning('Loading instrumentdb %s' % self.instrument_db_file)
         try:
