@@ -26,7 +26,7 @@ class IDBSiam:
             instrument_db = private.instrument_db
         #if isinstance(instrument_db, list):
         #    instrument_db = instrument_db[obt.mean() > 1667477889.4692688] # first stamp of OD 539
-        l.warning("Using IDB: " + str(map(os.path.basename, instrument_db)))
+        l.warning("Using IDB: " + str(map(os.path.basename, instrument_db.values())))
         self.uv_angles = {}
         for instrument_db_one in instrument_db.itervalues():
             idb_file = pyfits.open(instrument_db_one)
