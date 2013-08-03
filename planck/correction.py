@@ -105,9 +105,9 @@ def get_ahf_wobble(obtx):
 def read_ptcor(obt, ptcorfile):
     data = np.loadtxt(ptcorfile, delimiter=',')
     l.debug('Reading ' + ptcorfile)
-    i = data[:, 0].searchsorted(np.median(obt))
-    return data[i-1, 1], data[i-1, 2]
-    #return utils.interp_floor(obt, data[:,0], data[:,1]), utils.interp_floor(obt, data[:,0], data[:,2])
+    #i = data[:, 0].searchsorted(np.median(obt))
+    #return data[i-1, 1], data[i-1, 2]
+    return np.interp(obt, data[:,0], data[:,1]), np.interp(obt, data[:,0], data[:,2])
 
 def ptcor(obt, ptcorfile):
     # Boresight rotation of 85 degrees in order to get in inscan-xscan reference frame
