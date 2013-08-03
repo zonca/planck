@@ -20,14 +20,13 @@ Period = namedtuple('Period', ['number','start','stop','splitnumber'])
 Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
 def get_g0(ch):
-    cal = "DDX9S"
-    if ch.f.freq == 30: cal = "DDX9DVV"
+    cal = "DX10"
     filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (cal, ch.f.freq)))[-1]
     with pyfits.open(filename) as calfile: 
 
         g0 = np.mean(calfile[ch.tag].data.field(0)[
                             (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
-                            (calfile["PID"].data["PID"] < private.survey[5].PID_LFI[1])
+                            (calfile["PID"].data["PID"] < private.survey[7].PID_LFI[1])
                                                  ])
     return g0
 
