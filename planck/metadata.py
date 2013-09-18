@@ -19,9 +19,8 @@ except exceptions.ImportError:
 Period = namedtuple('Period', ['number','start','stop','splitnumber'])
 Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
-def get_g0(ch):
-    cal = "DX10"
-    filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (cal, ch.f.freq)))[-1]
+def get_g0(ch, reference_cal="DX10"):
+    filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (reference_cal, ch.f.freq)))[-1]
     with pyfits.open(filename) as calfile: 
 
         g0 = np.mean(calfile[ch.tag].data.field(0)[
