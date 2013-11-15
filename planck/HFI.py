@@ -34,6 +34,7 @@ class HFIChannel(Planck.Channel):
 class HFI(Planck.Instrument):
     
     uncal = 'R'
+    white_noise_field = "NET_WHT" 
 
     Channel = HFIChannel
 

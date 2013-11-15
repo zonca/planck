@@ -68,6 +68,7 @@ class LFIFrequencySet(Planck.FrequencySet):
 class LFI(Planck.Instrument):
 
     uncal = 'C'
+    white_noise_field = "NET" 
 
     Channel = LFIChannel
     FrequencySet = LFIFrequencySet

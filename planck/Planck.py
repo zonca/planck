@@ -73,7 +73,7 @@ class Channel(ChannelBase):
 
     @property
     def white_noise(self): 
-        return float(self.rimo['NET'])
+        return float(self.rimo[self.inst.white_noise_field])
 
     @property
     def pair(self):
