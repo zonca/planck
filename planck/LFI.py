@@ -59,6 +59,9 @@ class LFIChannel(Planck.Channel):
     def eff_tag(self):
         return self.tag
 
+    @property
+    def white_noise_sigma(self):
+        return self.get_instrument_db_field("NET")**2 * self.get_instrument_db_field("F_SAMP")
 
 class LFIFrequencySet(Planck.FrequencySet):
     
