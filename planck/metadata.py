@@ -1,4 +1,5 @@
 import exceptions
+import numpy as np
 from glob import glob
 import os
 import sqlite3
@@ -52,6 +53,12 @@ def pid2od(pid, db):
     od = first_od[0]
     return od
 
+def obt2utc(obt):
+    import scipy.interpolate
+    utcvec, obtvec = np.genfromtxt( '/project/projectdirs/planck/data/mission/SIAM/utc2obt_dx11.txt' ).T
+    # utc2obt = scipy.interpolate.interp1d(utcvec, obtvec)
+    obt2utc = scipy.interpolate.interp1d(obtvec, utcvec)
+    return obt2utc(obt)
 
 class DataSelector(object):
     """Planck data selector
@@ -286,8 +293,8 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
     if isinstance(ods, int):
         ods = [ods]
         single = True
-    if glob(exchangefolder + '/*.fits'):
-        ods = [0]
+    #if glob(exchangefolder + '/*.fits'):
+    #    ods = [0]
     if type == 'K':
         type = ''
     EFF = []
