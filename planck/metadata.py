@@ -1,18 +1,17 @@
-import exceptions
 import numpy as np
 from glob import glob
 import os
 import sqlite3
 import logging as l
 import pyfits
-import numpy as np
 from collections import namedtuple
 import sys
 
-from Planck import parse_channels, freq2inst
+from . import parse_channels
+from .base import freq2inst
 
 try:
-    import private
+    from . import private
 except exceptions.ImportError:
     print('private.py is needed to use the planck module, this is available only to members of the Planck collaboration')
     raise
@@ -25,7 +24,7 @@ def get_g0(ch, reference_cal="DX10"):
     finalsurv = 5 if reference_cal.startswith("DDX9") else 7
     with pyfits.open(filename) as calfile: 
 
-        g0 = np.mean(calfile[ch.tag].data.field(0)[
+        g0 = np.mean(calfile[str(ch.tag)].data.field(0)[
                             (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
                             (calfile["PID"].data["PID"] < private.survey[finalsurv].PID_LFI[1])
                                                  ])

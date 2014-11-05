@@ -4,15 +4,18 @@ import logging as l
 import numpy as np
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 import quaternionarray as qarray
-import Planck
-import private
+from . import Planck
+from . import private
 import pyfits
-from pointingtools import angles2siam, quaternion_ecl2gal, AHF_btw_OBT
+from .pointingtools import angles2siam, quaternion_ecl2gal, AHF_btw_OBT
 import pycfitsio
-import correction
+from . import correction
 import glob
 import os
-import exceptions
+try:
+    from exceptions import IndexError
+except:
+    pass
 
 def compute_pol_weigths(psi):
     spsi = np.sin(psi)
@@ -33,13 +36,13 @@ class IDBSiam:
             for row in np.array(idb_file[1].data):
                 try:
                     radtag = row["Radiometer"].strip()
-                except exceptions.IndexError:
+                except IndexError:
                     radtag = row["DETECTOR"].strip()
                 self.uv_angles[radtag] = {}
                 for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
                     try:
                         self.uv_angles[radtag][fi]=np.radians(row[fi])
-                    except exceptions.IndexError:
+                    except IndexError:
                         self.uv_angles[radtag][fi]=np.radians(row[fi.upper()])
                 if Pxx:
                     self.uv_angles[radtag]["psi_uv"]=0

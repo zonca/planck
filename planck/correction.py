@@ -1,7 +1,7 @@
 import logging as l
 import pycfitsio
 import numpy as np
-import private
+from . import private
 
 class DummyClass:
     pass
@@ -11,10 +11,8 @@ physcon.c = 2.997924580000e+08
 from dipole import SatelliteVelocity
 
 import quaternionarray as qarray
-import private
 import glob
 
-import utils
 #from tabulate_corrections_calc import TabulatedAttitudeCorrections
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 

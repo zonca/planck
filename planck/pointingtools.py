@@ -1,20 +1,13 @@
 from __future__ import division
 
-#TODO remove useless imports
 import math
 import pyfits
 import logging as l 
-import csv
-import glob
-from itertools import *
 import numpy as np
 #from IPython.Debugger import Tracer; debug_here = Tracer()
-import re
 import quaternionarray as qarray
-from utils import grouper
-import private
-from pointingtools import *
-import exceptions
+from .utils import grouper
+from . import private
 
 SPIN2BORESIGHT = np.radians(85.0)
 

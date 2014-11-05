@@ -1,13 +1,7 @@
 # Generic python class for dealing with Planck LFI
 
-import logging as l
-import numpy as np
-import Planck
-import private
-import cPickle
-import os
-import sys
-import exceptions
+from .base import Channel, ChannelBase, FrequencySet, Instrument
+from . import private
 
 class LFI_response:
     """ Class to store response curve in similar format to
@@ -23,7 +17,7 @@ class LFI_response:
 def flatten_d(chlist):
     return [d for ch in chlist for d in ch.d]
 
-class LFIChannel(Planck.Channel):
+class LFIChannel(Channel):
 
     MS = { 0 : 'M', 1 : 'S' }
     fromMS = { 'M' : 0, 'S' : 1}
@@ -63,12 +57,12 @@ class LFIChannel(Planck.Channel):
     def white_noise_sigma(self):
         return self.get_instrument_db_field("NET")**2 * self.get_instrument_db_field("F_SAMP")
 
-class LFIFrequencySet(Planck.FrequencySet):
+class LFIFrequencySet(FrequencySet):
     
     @property
     def d(self):
         return flatten_d(self.ch)
-class LFI(Planck.Instrument):
+class LFI(Instrument):
 
     uncal = 'C'
     white_noise_field = "NET" 
@@ -100,7 +94,7 @@ class LFI(Planck.Instrument):
     def d(self):
         return flatten_d(self.ch)
 
-class Detector(Planck.ChannelBase):
+class Detector(ChannelBase):
     def __init__(self, ch, n):
         self.n = n
         self.ch = ch

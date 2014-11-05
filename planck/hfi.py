@@ -1,13 +1,11 @@
-#!/usr/bin/env python
-#
 # Generic python class for dealing with Planck HFI
 # by zonca@deepspace.ucsb.edu
 
 import numpy as np
-import Planck
-import private
+from .base import Channel, Instrument
+from . import private
 
-class HFIChannel(Planck.Channel):
+class HFIChannel(Channel):
 
     MS = { 0 : 'a', 1 : 'b' }
     fromMS = { 'a' : 0, 'b' : 1}
@@ -31,7 +29,7 @@ class HFIChannel(Planck.Channel):
     def eff_tag(self):
         return self.tag.replace('-','_')
 
-class HFI(Planck.Instrument):
+class HFI(Instrument):
     
     uncal = 'R'
     white_noise_field = "NET_WHT" 

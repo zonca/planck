@@ -1,12 +1,19 @@
 from __future__ import division
-import exceptions
 import numpy as np
-from itertools import *
 from calendar import timegm
 import ephem
 import datetime
-import private
+from . import private
+try:
+    from itertools import zip
+except:
+    pass
+from itertools import chain, repeat
 import os
+try:
+    from exceptions import ValueError
+except:
+    pass
 
 OBTSTARTDATE = datetime.datetime(1958,1,1,0,0,0)
 LAUNCH = datetime.datetime(2009, 5, 13, 13, 11, 57, 565826)
@@ -26,7 +33,7 @@ def pix2od(ch, pixels):
     NPIX = 12 * NSIDE**2
     tot_ods = list()
     if np.any(np.array(pixels) >= NPIX):
-        raise exceptions.ValueError('ERROR: input pixels must be NSIDE 512, RTFM!')
+        raise ValueError('ERROR: input pixels must be NSIDE 512, RTFM!')
     for pix in pixels:
         ods = set(np.array(list(pixels_by_od[num_ods*pix:num_ods*pix+num_ods].findall([True]))) + odrange[0])
         tot_ods.append(ods)
@@ -34,7 +41,7 @@ def pix2od(ch, pixels):
 
 def grouper(n, iterable, padvalue=None):
     "grouper(3, 'abcdefg', 'x') --> ('a','b','c'), ('d','e','f'), ('g','x','x')"
-    return izip(*[chain(iterable, repeat(padvalue, n-1))]*n)
+    return zip(*[chain(iterable, repeat(padvalue, n-1))]*n)
 
 def ahfdate2obt(ahfdate):
      from dipole import jd2obt
