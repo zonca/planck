@@ -20,14 +20,21 @@ Period = namedtuple('Period', ['number','start','stop','splitnumber'])
 Observation = namedtuple('Observation', ['od','tag','start','stop','PP','EFF', 'break_startrow', 'break_stoprow'])
 
 def get_g0(ch, reference_cal="DX10"):
-    filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (reference_cal, ch.f.freq)))[-1]
-    finalsurv = 5 if reference_cal.startswith("DDX9") else 7
-    with pyfits.open(filename) as calfile: 
+    if ch.inst.name == "HFI":
+        hfi_gains = {
+            "100-1a" : 10010720032650.1,
+            "100-1b" : 8164078549011.37
+            }
+        g0 = hfi_gains[ch.tag]
+    else:
+        filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (reference_cal, ch.f.freq)))[-1]
+        finalsurv = 5 if reference_cal.startswith("DDX9") else 7
+        with pyfits.open(filename) as calfile: 
 
-        g0 = np.mean(calfile[str(ch.tag)].data.field(0)[
-                            (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
-                            (calfile["PID"].data["PID"] < private.survey[finalsurv].PID_LFI[1])
-                                                 ])
+            g0 = np.mean(calfile[str(ch.tag)].data.field(0)[
+                                (calfile["PID"].data["PID"] > private.survey[1].PID_LFI[0]) & 
+                                (calfile["PID"].data["PID"] < private.survey[finalsurv].PID_LFI[1])
+                                                     ])
     return g0
 
 def obt2od(obt, freq=30):
