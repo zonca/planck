@@ -305,16 +305,19 @@ def latest_exchange(freq, ods, exchangefolder = None, type = 'R'):
         type = ''
     EFF = []
     for od in ods:
-        pattern = '*%03d-%04d-%s*.fits' % (freq, od, type)
+        pattern = '*%03d?%04d?%s*.fits' % (freq, od, type)
         if od:
             pattern = os.path.join('%04d' % od, pattern)
         l.debug('Exchange format: %s' % (os.path.join(exchangefolder, pattern)))
         allversions = glob(os.path.join(exchangefolder, pattern))
-        if not allversions:
-            error_message = 'Cannot find file from pattern: %s' % os.path.join(exchangefolder, pattern)
-            l.error(error_message)
-            raise exceptions.IOError(error_message)
-        EFF.append(max(allversions, key = lambda x: int(x[-13:-5])))
+        if len(allversions) == 1:
+            EFF.append(allversions[0])
+        else:
+            if not allversions:
+                error_message = 'Cannot find file from pattern: %s' % os.path.join(exchangefolder, pattern)
+                l.error(error_message)
+                raise IOError(error_message)
+            EFF.append(max(allversions, key = lambda x: int(x[-13:-5])))
     if single:
         EFF = EFF[0]
     return EFF
