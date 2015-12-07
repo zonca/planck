@@ -12,7 +12,7 @@ from .base import freq2inst
 
 try:
     from . import private
-except exceptions.ImportError:
+except ImportError:
     print('private.py is needed to use the planck module, this is available only to members of the Planck collaboration')
     raise
 
