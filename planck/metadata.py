@@ -100,7 +100,7 @@ class DataSelector(object):
     def ods(self):
         try:
             return self._ods
-        except exceptions.AttributeError:
+        except AttributeError:
             self._ods = set()
             for obt_range in self.obt_ranges:
                 self._ods.update(self.get_ODs(obt_range))
@@ -111,7 +111,7 @@ class DataSelector(object):
     def obt_ranges(self):
         try:
             return self._obt_ranges
-        except exceptions.AttributeError:
+        except AttributeError:
             self._obt_ranges = [get_obt_range_from_od(od, self.config['database']) for od in self.ods]
             return self._obt_ranges
 
@@ -128,7 +128,7 @@ class DataSelector(object):
 
     def by_obt(self, obt_ranges):
         """obt_ranges is a list of 2 element lists (or tuple) with start-stop obt"""
-        raise exceptions.NotImplementedError()
+        raise NotImplementedError()
         self._obt_ranges = obt_ranges
 
     def by_lfi_rings(self, rings):
@@ -196,7 +196,7 @@ class DataSelector(object):
             l.warning('Break found in OD %d' % od)
             try:
                 OB = [o for o in OBS if o.start < stopobt and o.stop > startobt][0]
-            except exceptions.IndexError:
+            except IndexError:
                 l.error('Cannot identify the observation related to the break in OD %d' % od)
                 sys.exit(1)
             i = OBS.index(OB)
@@ -217,7 +217,7 @@ class DataSelector(object):
 
         PP = []
         for q in query:
-            pid_numbers= map(int, q[0].split('-'))
+            pid_numbers= list(map(int, q[0].split('-')))
             if self.ring_range != None:
                 # Check if the Pointing ID is within a specified ring range
                 if pid_numbers[0] < self.ring_range[0]: continue

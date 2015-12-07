@@ -5,6 +5,7 @@ import numpy as np
 #from IPython.Debugger import Tracer; debug_here = Tracer()
 import quaternionarray as qarray
 from . import Planck
+from . import parse_channel
 from . import private
 import pyfits
 from .pointingtools import angles2siam, quaternion_ecl2gal, AHF_btw_OBT
@@ -31,13 +32,14 @@ class IDBSiam:
         #    instrument_db = instrument_db[obt.mean() > 1667477889.4692688] # first stamp of OD 539
         l.warning("Using IDB: " + str(map(os.path.basename, instrument_db.values())))
         self.uv_angles = {}
-        for instrument_db_one in instrument_db.itervalues():
+        for instrument_db_one in instrument_db.values():
             idb_file = pyfits.open(instrument_db_one)
             for row in np.array(idb_file[1].data):
                 try:
                     radtag = row["Radiometer"].strip()
                 except IndexError:
                     radtag = row["DETECTOR"].strip()
+                radtag = radtag.decode("ascii")
                 self.uv_angles[radtag] = {}
                 for fi in ["theta_uv","phi_uv","psi_uv","psi_pol"]:
                     try:
@@ -147,7 +149,7 @@ class Pointing(object):
         return vec
 
     def get(self, rad):
-        rad = Planck.parse_channel(rad)
+        rad = parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         x = np.dot(self.siam.get(rad),[1, 0, 0])
         vec = qarray.rotate(self.qsatgal_interp, x)
@@ -160,7 +162,7 @@ class Pointing(object):
         return vec
 
     def inv(self, rad, vec):
-        rad = Planck.parse_channel(rad)
+        rad = parse_channel(rad)
         l.info('Rotating to detector %s' % rad)
         if self.deaberration:
             l.warning('Applying deaberration correction')
