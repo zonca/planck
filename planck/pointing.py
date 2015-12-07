@@ -236,9 +236,12 @@ class DiskPointing(Pointing):
 
     def get_3ang(self, ch):
         l.debug('Reading %s' % self.filename)
-        with pycfitsio.open(self.filename) as f:
+        #with pycfitsio.open(self.filename) as f:
+        #    h = f[ch.tag]
+        #    return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
+        with pyfits.open(self.filename) as f:
             h = f[ch.tag]
-            return h.read_column('THETA'), h.read_column('PHI'), h.read_column('PSI')
+            return h.data['THETA'], h.data['PHI'], h.data['PSI']
 
     def get_ang(self, ch):
         l.debug('Reading %s' % self.filename)
