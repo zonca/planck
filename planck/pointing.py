@@ -7,7 +7,7 @@ import quaternionarray as qarray
 from . import Planck
 from . import parse_channel
 from . import private
-import pyfits
+from astropy.io import fits as pyfits
 from .pointingtools import angles2siam, quaternion_ecl2gal, AHF_btw_OBT
 import pycfitsio
 from . import correction

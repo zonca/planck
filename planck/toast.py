@@ -14,7 +14,7 @@ from collections import defaultdict
 import logging as l
 from pytoast.core import Run, ParMap
 
-import pyfits
+from astropy.io import fits as pyfits
 
 l.basicConfig(level=l.INFO)
 

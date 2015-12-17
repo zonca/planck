@@ -1,7 +1,7 @@
 from __future__ import division
 
 import math
-import pyfits
+from astropy.io import fits as pyfits
 import logging as l 
 import numpy as np
 #from IPython.Debugger import Tracer; debug_here = Tracer()

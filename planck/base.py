@@ -1,4 +1,4 @@
-import pyfits
+from astropy.io import fits as pyfits
 import logging as l
 import numpy as np
 try:
@@ -164,7 +164,6 @@ class Instrument(object):
         
     def instrument_db(self,ch):
         if not hasattr(self,'_instrument_db') or self._instrument_db is None:
-            import pyfits
             if isinstance(self.instrument_db_file, list):
                 self.instrument_db_file = self.instrument_db_file[0]
             if isinstance(self.instrument_db_file, dict):

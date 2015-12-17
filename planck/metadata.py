@@ -3,7 +3,7 @@ from glob import glob
 import os
 import sqlite3
 import logging as l
-import pyfits
+from astropy.io import fits as pyfits
 from collections import namedtuple
 import sys
 
