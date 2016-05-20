@@ -28,7 +28,7 @@ def get_g0(ch, reference_cal="DX10"):
         g0 = hfi_gains[ch.tag]
     else:
         filename = sorted(glob(private.cal_folder + "/%s/C%03d-*.fits" % (reference_cal, ch.f.freq)))[-1]
-        finalsurv = 5 if reference_cal.startswith("DDX9") else 7
+        finalsurv = 5 if reference_cal.startswith("DDX9") else 8
         with pyfits.open(filename) as calfile: 
 
             g0 = np.mean(calfile[str(ch.tag)].data.field(0)[

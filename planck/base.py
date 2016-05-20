@@ -36,7 +36,7 @@ class Channel(ChannelBase):
 
     def __init__(self, data, inst=None):
         try:
-            self.tag = data[0].strip().decode('unicode_escape')
+            self.tag = data[0][0].strip().decode('unicode_escape')
         except:
             self.tag = data[0].strip()
         self.rimo = np.array(data)
