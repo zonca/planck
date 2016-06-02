@@ -171,9 +171,9 @@ class Instrument(object):
             self._instrument_db = np.array(pyfits.open(self.instrument_db_file,ignore_missing_end=True)[1].data)
             l.warning('Loading instrumentdb %s' % self.instrument_db_file)
         try:
-            det_index, = np.where([rad.strip().endswith(ch.tag.encode()) for rad in self._instrument_db['Radiometer']])
+            det_index, = np.where([rad[0].strip().endswith(ch.tag.encode()) for rad in self._instrument_db['Radiometer']])
         except ValueError:
-            det_index, = np.where([rad.strip().endswith(ch.tag.encode()) for rad in self._instrument_db['DETECTOR']])
+            det_index, = np.where([rad[0].strip().endswith(ch.tag.encode()) for rad in self._instrument_db['DETECTOR']])
         return self._instrument_db[det_index]
             
     def __getitem__(self, key):
